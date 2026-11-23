@@ -4,7 +4,7 @@
 
 The strategy uses price-volume factors as its alpha source. At the portfolio level it has two branches: active management, which keeps benchmark beta and targets excess return over the CSI 300; and market neutral, which hedges systematic beta with index futures and keeps only factor return. Both branches share the same factors and composite scores.
 
-This repository currently implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, and rolling multi-factor model (annual factor re-selection + monthly rebalancing). Optimizer search and the market-neutral branch are still under development.
+This repository currently implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, rolling multi-factor model (annual factor re-selection + monthly rebalancing), and a partial Optimizer 1 (long-side gate + long-side t weighting, S7). Full optimizer search and the market-neutral branch are still under development.
 
 ## Contents
 
@@ -58,29 +58,36 @@ After adding capacity constraints (ADV above the 20th percentile, at least 120 t
 
 ### Rolling Multi-Factor (Out-of-Sample)
 
-Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 periods:
+Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 periods. The original ICIR-weighted Top-10 model is kept as the control. The **S7** variant adds a long-side gate (training-window long-side excess return > 0 with t ≥ 1) and long-side t-stat weights, and holds the Top 100 names:
 
-| Metric | Rolling Multi-Factor | CSI 300 |
-| --- | ---: | ---: |
-| Cumulative return | -6.40% | 38.82% |
-| Annualized return | -1.11% | 5.68% |
-| Annualized volatility | 26.38% | 20.69% |
-| Sharpe ratio | -0.04 | 0.27 |
-| Maximum drawdown | -41.31% | -36.96% |
-| Annualized turnover | 10.68x | — |
+| Metric | Original Rolling (Top 10) | S7 Rolling (Top 100) | CSI 300 |
+| --- | ---: | ---: | ---: |
+| Cumulative return | -6.40% | +50.10% | 38.82% |
+| Annualized return | -1.11% | +7.08% | 5.68% |
+| Annualized volatility | 26.38% | 22.75% | 20.69% |
+| Sharpe ratio | -0.04 | 0.31 | 0.27 |
+| Maximum drawdown | -41.31% | -40.53% | -36.96% |
+| Annualized turnover | 10.68x | 9.07x | — |
 
-![Rolling multi-factor NAV](results/rolling/nav.png)
+![S7 rolling NAV](results/rolling_top/top100/nav.png)
 
-Out-of-sample cumulative return is -6.40%, 45 percentage points behind the benchmark, with a maximum drawdown 4.4 points deeper. Annual retraining and monthly rebalancing do not change the conclusion: after removing illiquid stocks and unifying the factor pipeline, this long-only price-volume portfolio has no tradable excess return for now.
+S7 beats the benchmark out of sample (+50.10% vs +38.82%, Sharpe 0.31 vs 0.27). The improvement decomposes into **diversification** (largest), **long-side t weighting**, and the **long-side gate**. Two honest caveats: the excess return is **concentrated in 2025** (the strategy lagged the benchmark through 2020-2024 and only overtook it in the 2025 rally), and the drawdown around the **February 2024 small-cap liquidity crisis** (-40.53%) is deeper than the benchmark's -36.96%. See `docs/strategy.md` section 11 for the full ablation and the config-by-holdings scan.
+
+### Attribution: Why the Baseline Turned Negative
+
+A 2x2 ablation (capacity filter on/off x unified/split factor pipeline) isolates the cause of the +91.13% to -28.62% flip. Toggling the **capacity filter** moves cumulative return by 91-145 percentage points; toggling the **pipeline** moves it by only 25-29 points. The capacity filter (ADV 20th percentile + 120 listed days) is the dominant cause: the earlier +91.13% came almost entirely from illiquid small caps and recent IPOs that cannot absorb real capital. Results are in [`results/ablation/comparison.csv`](results/ablation/comparison.csv).
 
 ## Project Structure
 
 ```
 .
-├── baseline/                  Single-factor baseline, long-short diagnosis, rolling model
+├── baseline/                  Baseline, diagnosis, rolling models, optimizer experiments
 │   ├── price_volume_baseline.py
 │   ├── factor_longshort.py
-│   └── rolling_multifactor.py
+│   ├── rolling_multifactor.py
+│   ├── rolling_top_weighted.py     S7 rolling (long-side gate + t weights)
+│   ├── optimizer_factor_selection.py
+│   └── ablation_attribution.py
 ├── data/                      Market data (not versioned)
 │   └── raw/                   One long-table CSV per stock
 ├── data_io/                   Wide-table readers
@@ -92,11 +99,10 @@ Out-of-sample cumulative return is -6.40%, 45 percentage points behind the bench
 │   │   ├── longshort.csv
 │   │   ├── performance.csv
 │   │   └── nav.png
-│   └── rolling/               Rolling model outputs
-│       ├── factor_selection.csv
-│       ├── composite_factor.csv
-│       ├── performance.csv
-│       └── nav.png
+│   ├── rolling/               Original rolling model outputs
+│   ├── rolling_top/           S7 rolling outputs (top10/50/100)
+│   ├── optimizer/             Factor selection and holdings scans
+│   └── ablation/              2x2 attribution outputs
 ├── scripts/                   Data download and wide-table conversion
 │   ├── 00_auto_resume_download.py
 │   ├── 01_download_a_share.py
@@ -190,7 +196,7 @@ The full design is in [`docs/strategy.md`](docs/strategy.md) (Chinese).
 - The universe excludes ST stocks, recent IPOs (less than 120 trading days), and the bottom 20% by ADV; capacity screening happens before factor tests;
 - No initial capital is assumed; NAV is computed from portfolio weights, and ADV is only a liquidity constraint;
 - Factors are winsorized with MAD, industry-demeaned, and Z-scored; tests and composition use the same version;
-- Factor weights are normalized |ICIR| over the training window; no time-series model forecasts factor returns;
+- Factor weights are normalized |ICIR| over the training window in the baseline; the S7 variant uses long-side t-stat weights behind a long-side gate; no time-series model forecasts factor returns;
 - Five-year training window, one-year rolling step, out-of-sample 2020–2025;
 - Turnover is computed from drifted weights to avoid overstating costs;
 - Capital allocation will cover eight methods: equal weight, inverse volatility, inverse variance, minimum variance, equal risk contribution, risk budgeting, maximum diversification, and maximum decorrelation (planned; V1 is equal weight).
@@ -211,9 +217,10 @@ The full design is in [`docs/strategy.md`](docs/strategy.md) (Chinese).
 - [x] Long-short return diagnosis for the 38 factors
 - [x] Single-factor baseline backtest
 - [x] Rolling multi-factor model (annual factor re-selection, monthly rebalancing, ICIR fallback rule)
-- [ ] Optimizer 1: factor search and weight shrinkage
+- [x] Optimizer 1 (partial): long-side gate + long-side t weighting (S7), validated out of sample
+- [x] Return attribution (capacity x pipeline 2x2 ablation)
+- [ ] Optimizer 1: full heuristic factor search and weight shrinkage
 - [ ] Optimizer 2: comparison of eight capital allocation methods
-- [ ] Return attribution
 - [ ] Fama-French three-factor comparison
 - [ ] Market-neutral branch (index futures hedge, net-beta constraint, hedge cost)
 - [ ] Xueqiu paper-trading tracking
