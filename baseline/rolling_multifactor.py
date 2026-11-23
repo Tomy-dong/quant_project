@@ -127,11 +127,11 @@ def build_composite(zfactors, fit, year):
 
 # ===================== 3. 滚动重训 =====================
 def run_rolling(factors, returns, dates):
-    print("预计算截面预处理（MAD + Z-score）...")
+    print("预计算截面预处理（MAD + 行业中性化 + Z-score）...")
     zfactors = {name: preprocess(fac) for name, fac in factors.items()}
 
     print("预计算全样本 RankIC 序列...")
-    ic_series = rank_ic_panel(factors, returns)
+    ic_series = rank_ic_panel(zfactors, returns)
 
     comps, logs = [], []
     for year in range(OOS_START_YEAR, OOS_END_YEAR + 1):

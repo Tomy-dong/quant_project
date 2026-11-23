@@ -5,6 +5,9 @@ data/*
 # 大体积中间结果
 results/**/composite_factor.csv
 
+# 数据压缩包只提交分卷
+data_archive/data.zip
+
 __pycache__/
 *.py[cod]
 *.log

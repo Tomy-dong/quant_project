@@ -64,6 +64,9 @@ COMSN = 0.002             # 单边交易成本
 NUM_GROUP = 5             # 因子分组数
 ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限
 MAX_FACTORS = 20          # 入选因子数上限（对应优化器一的 K 约束）
+ADV_WINDOW = 60           # ADV 均值窗口（交易日）
+ADV_PCT = 0.2             # 剔除 ADV 位于截面最低 20% 的股票
+MIN_LISTED_DAYS = 120     # 上市满 N 个交易日，剔除次新股
 
 DATA_DIR = HERE.parent / "data"
 OUTPUT_DIR = HERE.parent / "results" / "baseline"
@@ -118,16 +121,38 @@ def build_monthly(daily):
     monthly["price"] = price.reindex(dates)
     monthly["returns"] = monthly["price"].pct_change(fill_method=None)
     monthly["dates"] = dates
+
+    # 60 日均成交额（元），用于容量筛选
+    adv = daily["amount"].rolling(ADV_WINDOW, min_periods=20).mean()
+    monthly["adv"] = adv.reindex(dates)
+
+    # 上市以来的交易日数，用于剔除次新股
+    basic = pd.read_csv(DATA_DIR / "sse_stock_basic.csv", dtype=str)
+    ipo = pd.to_datetime(basic.set_index("code")["ipoDate"], errors="coerce")
+    ipo.index = ipo.index.str[3:] + "." + ipo.index.str[:2].str.upper()
+    ipo = ipo.reindex(price.columns).fillna(pd.Timestamp("2100-01-01"))
+
+    end_pos = price.index.searchsorted(dates, side="right") - 1
+    ipo_pos = price.index.searchsorted(ipo.to_numpy())
+    listed = end_pos[:, None] - ipo_pos[None, :] + 1
+    # 数据起点之前上市的股票，实际已上市多年，直接视为满足条件
+    listed = np.where(ipo.to_numpy() < price.index[0], 10_000, listed)
+    monthly["listed_days"] = pd.DataFrame(
+        listed, index=dates, columns=price.columns)
     return monthly
 
 
-def filter_pool(monthly, min_amount=10_000):
-    """可交易股票池：非 ST、有成交、成交额达标。"""
+def filter_pool(monthly, adv_pct=ADV_PCT, min_listed=MIN_LISTED_DAYS):
+    """可交易股票池：非 ST、有成交、上市满 min_listed 个交易日、ADV 不低于截面分位。"""
     is_st = monthly["is_st"].fillna(1)
     amount = monthly["amount"].fillna(0)
     vol = monthly["vol"].fillna(0)
+    listed = monthly["listed_days"]
 
-    return (is_st == 0) & (vol > 0) & (amount >= min_amount)
+    pool = (is_st == 0) & (vol > 0) & (amount > 0) & (listed >= min_listed)
+    adv = monthly["adv"].where(pool)
+    threshold = adv.quantile(adv_pct, axis=1)
+    return pool & adv.gt(threshold, axis=0)
 
 
 # ===================== 3. 因子计算 =====================
@@ -291,12 +316,12 @@ def compute_price_volume_factors(monthly, valid):
 
 # ===================== 4. 因子检验 =====================
 def run_factor_test(factors, returns, dates):
-    """对每个因子做 IC、分组与多空检验，汇总到 factor_summary.csv。"""
+    """对每个已预处理因子做 IC、分组与多空检验，汇总到 factor_summary.csv。"""
     results = {}
     summary_rows = []
     for name, fac in factors.items():
         print(f"\n=== 因子检验：{name} ===")
-        res = factor_test(fac, returns, NumOfGroup=NUM_GROUP,
+        res = factor_test(fac, returns, NumOfGroup=NUM_GROUP, FSDflag=0,
                           DispFlag=True, PlotFlag=False, comsn=0, name=name)
         results[name] = res
 
@@ -339,16 +364,16 @@ def select_factors(summary, icir_threshold=ICIR_THRESHOLD, max_factors=MAX_FACTO
     return selected
 
 
-def composite_factor(factors, selected, summary):
-    """等权合成入选因子，IC 为负的因子取反。"""
+def composite_factor(scores, selected, summary):
+    """等权合成已预处理的入选因子，IC 为负的因子取反。"""
     pivot = summary.pivot_table(index="因子", columns="指标", values="平均IC")
-    composite = pd.DataFrame(0.0, index=factors[selected[0]].index,
-                             columns=factors[selected[0]].columns)
+    composite = pd.DataFrame(0.0, index=scores[selected[0]].index,
+                             columns=scores[selected[0]].columns)
     for name in selected:
         sign = 1.0
         if "RankIC" in pivot.columns:
             sign = np.sign(pivot.loc[name, "RankIC"]) or 1.0
-        composite = composite + sign * preprocess(factors[name])
+        composite = composite + sign * scores[name]
     return composite / len(selected)
 
 
@@ -424,12 +449,13 @@ def main():
     factors = compute_price_volume_factors(monthly, valid)
     print(f"  共 {len(factors)} 个因子")
 
-    print("\n[5/5] 因子检验与回测...")
+    print("\n[5/5] 截面预处理、因子检验与回测...")
+    scores = {name: preprocess(fac) for name, fac in factors.items()}
     returns = monthly["returns"]
-    _, summary = run_factor_test(factors, returns, dates)
+    _, summary = run_factor_test(scores, returns, dates)
 
     selected = select_factors(summary)
-    composite = composite_factor(factors, selected, summary)
+    composite = composite_factor(scores, selected, summary)
     composite.to_csv(OUTPUT_DIR / "composite_factor.csv", encoding="utf-8-sig")
     backtest_portfolio(composite, returns, dates)
 
