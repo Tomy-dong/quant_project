@@ -1,0 +1,18 @@
+# 数据文件体积大，需按 README 重新下载
+data/*
+!data/.gitkeep
+
+# 大体积中间结果
+results/**/composite_factor.csv
+
+__pycache__/
+*.py[cod]
+*.log
+
+.idea/
+.vscode/
+.spyproject/
+.DS_Store
+Thumbs.db
+
+docs/*.build.html
