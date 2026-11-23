@@ -141,7 +141,7 @@ def main():
     factors = pv.compute_price_volume_factors(monthly, valid)
     zfactors = {name: preprocess(fac) for name, fac in factors.items()}
 
-    print("[3/5] 预计算 RankIC 与多空分组超额面板...")
+    print("[3/5] 预计算 RankIC 与 top/bottom 分组超额面板...")
     ic_series = rm.rank_ic_panel(zfactors, returns)
     panels = excess_panels(zfactors, returns)
 

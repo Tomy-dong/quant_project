@@ -5,14 +5,21 @@
     S1 S0 + 多空门控（多空年化>0 且 t>=2）
     S2 S1 + 多头门控（多头超额年化>0 且 t>0）
     S3 S2 的因子集合，按 |ICIR| 加权
-    S4 纯多头导向：多头超额 t>=1 且 |ICIR|>=0.2（不要求多空显著）
+    S4 纯多头导向：多头超额 t>1 且 |ICIR|>=0.2（不要求多空显著）
     S5 S2 + |ICIR|>=0.3
     S6 S2 + |ICIR|>=0.4
-最后对夏普最高的配置扫描持仓数 TOP_N ∈ {10, 20, 50}。
+    S7 S4 的因子集合，按多头超额 t 值加权
+对 S0 / S3 / S4 / S7 扫描持仓数 TOP_N ∈ {10, 20, 50, 100}。
 
 多头超额 = 方向校准后 top 组等权收益 - 当期全池等权收益（逐月）。
 IC / 多空诊断直接复用 results/baseline/ 下当前配置的 factor_summary.csv 与
 longshort.csv，避免重复运行 factor_test。
+
+范围说明：S7 是规则化的因子筛选与加权实验，不是完整数值优化器；目标版损失函数、
+启发式搜索、共线 / 波动 / 暴露约束和 lambda 权重收缩均未在本脚本实现。
+Scope: S7 is a rule-based factor-selection and weighting experiment, not the full
+numerical optimizer. The target loss, heuristic search, collinearity / volatility /
+exposure constraints, and lambda shrinkage are not implemented here.
 
 注意：本实验为全样本内筛选，存在过拟合风险，结论需经 rolling OOS 验证。
 

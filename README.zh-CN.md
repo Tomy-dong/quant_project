@@ -190,7 +190,7 @@ backAdjustFactor, totalShare, liqaShare
 
 ## 策略要点
 
-完整设计见 [`docs/strategy.md`](docs/strategy.md)。
+完整设计见 [`docs/strategy.md`](docs/strategy.md)，英文版见 [`docs/strategy.en.md`](docs/strategy.en.md)。
 
 - 全链路只用一套后复权价格，因子、收益与净值同口径；
 - 股票池剔除 ST、次新股（上市不满 120 个交易日）与 ADV 最低 20% 的股票，容量约束前置；

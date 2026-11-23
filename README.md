@@ -190,7 +190,7 @@ backAdjustFactor, totalShare, liqaShare
 
 ## Strategy Highlights
 
-The full design is in [`docs/strategy.md`](docs/strategy.md) (Chinese).
+The full design is available in [English](docs/strategy.en.md) and [Chinese](docs/strategy.md).
 
 - One back-adjusted price series end to end, so factors, returns, and NAV share the same basis;
 - The universe excludes ST stocks, recent IPOs (less than 120 trading days), and the bottom 20% by ADV; capacity screening happens before factor tests;
