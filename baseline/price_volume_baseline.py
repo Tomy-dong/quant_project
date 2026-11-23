@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
-"""单因子基线：动量 / 反转类因子在 A 股的多头选股实验。
+"""量价单因子基线：38 个量价因子（动量/反转 + Alpha 系列）在 A 股的多头选股实验。
 
 用途
 ----
-作为多因子策略的对照组，回答一个最基本的问题：只用动量类因子做多头
+作为多因子策略的对照组，回答一个最基本的问题：只用纯量价信息做多头
 选股，在 A 股能不能赚钱。结论是否定的，具体数字见 results/baseline/。
 
 流程
 ----
-数据载入 -> 月末采样 -> 股票池过滤 -> 因子计算 -> 单因子检验(IC/分组/多空)
--> 按 ICIR 选因子并等权合成 -> Top N 等权持有、月末调仓 -> 绩效输出
+数据载入 -> 月末采样 -> 股票池过滤 -> 因子计算(38 个量价因子)
+-> 单因子检验(IC/分组/多空) -> 按 ICIR 选因子并等权合成
+-> Top N 等权持有、月末调仓 -> 绩效输出
+
+因子
+----
+华泰金工系列（12 个）：return_Nm、wgt_return_Nm、exp_wgt_return_3/6/12m、HAlpha
+Alpha101 精选（21 个）：Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
+量价扩展（5 个）：volatility_3m/6m、turnover_mean_3m、turnover_std_3m、amihud_3m
 
 注意
 ----
@@ -20,7 +27,7 @@
 
 用法
 ----
-    python baseline/momentum_baseline.py
+    python baseline/price_volume_baseline.py
 """
 
 import sys
@@ -56,6 +63,7 @@ TOP_N = 10                # 每期持仓只数
 COMSN = 0.002             # 单边交易成本
 NUM_GROUP = 5             # 因子分组数
 ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限
+MAX_FACTORS = 20          # 入选因子数上限（对应优化器一的 K 约束）
 
 DATA_DIR = HERE.parent / "data"
 OUTPUT_DIR = HERE.parent / "results" / "baseline"
@@ -123,14 +131,16 @@ def filter_pool(monthly, min_amount=10_000):
 
 
 # ===================== 3. 因子计算 =====================
-def compute_momentum_factors(monthly, valid):
-    """计算 19 个动量 / 反转类因子。
+def compute_price_volume_factors(monthly, valid):
+    """计算 38 个量价因子（动量 / 反转 / 量价 / 波动 / 流动性）。
 
-    华泰金工系列（13 个）：return_Nm、wgt_return_Nm、exp_wgt_return_Nm、HAlpha
-    Alpha101 动量反转（6 个）：Alpha4、Alpha9、Alpha20、Alpha30、Alpha35、Alpha101
+    华泰金工系列（12 个）：return_Nm、wgt_return_Nm、exp_wgt_return_Nm、HAlpha
+    Alpha101 精选（21 个）：Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
+    量价扩展（5 个）：volatility_3m/6m、turnover_mean_3m、turnover_std_3m、amihud_3m
     """
     price = monthly["price"]
     turn = monthly["turnover_rate"]
+    amount = monthly["amount"]
     open_ = monthly["open"] * monthly["adj_factor"]
     high = monthly["high"] * monthly["adj_factor"]
     low = monthly["low"] * monthly["adj_factor"]
@@ -154,7 +164,8 @@ def compute_momentum_factors(monthly, valid):
             [np.inf, -np.inf], np.nan)
 
     # --- 指数衰减换手率加权 exp_wgt_return_Nm ---
-    for N in months:
+    # N=1 时衰减权重退化为等权，与 wgt_return_1m 完全重复，故从 3 个月起算
+    for N in months[1:]:
         ret_N = price / price.shift(N) - 1
         decay = np.exp(-np.arange(N)[::-1] / (N / 4.0))
         decay = decay / decay.sum()
@@ -227,6 +238,54 @@ def compute_momentum_factors(monthly, valid):
     # --- Alpha101: (close-open)/(high-low) ---
     factors["Alpha101"] = ((close - open_) / (high - low + 0.001)).where(valid)
 
+    # --- Alpha101 精选：仅依赖 OHLCV 与成交量的反转/量价类 ---
+    # 原公式窗口单位为交易日，月频面板下统一按“月”解释
+    ret = close.pct_change(fill_method=None)
+    c_rank = lambda x: x.rank(axis=1, pct=True)
+    c_tsrank = lambda x, w: x.rolling(w, min_periods=1).rank(pct=True)
+    c_corr = lambda x, y, w: x.rolling(w, min_periods=3).corr(y)
+    c_cov = lambda x, y, w: x.rolling(w, min_periods=3).cov(y)
+    c_delta = lambda x, n: x - x.shift(n)
+
+    def add_factor(name, frame):
+        factors[name] = frame.replace([np.inf, -np.inf], np.nan).where(valid)
+
+    add_factor("Alpha6", -c_corr(open_, vol, 6))
+    add_factor("Alpha12", np.sign(c_delta(vol, 1)) * (-c_delta(close, 1)))
+    add_factor("Alpha13", -c_rank(c_cov(c_rank(close), c_rank(vol), 6)))
+    add_factor("Alpha14", -c_rank(c_delta(ret, 3)) * c_corr(open_, vol, 6))
+    add_factor("Alpha15", -c_rank(c_corr(c_rank(high), c_rank(vol), 3))
+               .rolling(3, min_periods=1).sum())
+    add_factor("Alpha16", -c_rank(c_cov(c_rank(high), c_rank(vol), 6)))
+    add_factor("Alpha18", -c_rank(
+        abs(close - open_).rolling(5, min_periods=1).std()
+        + (close - open_) + c_corr(close, open_, 10)))
+    cond23 = high.rolling(20, min_periods=1).mean() < high
+    add_factor("Alpha23", -c_delta(high, 2).where(cond23, 0.0))
+    add_factor("Alpha26", -c_corr(c_tsrank(vol, 5), c_tsrank(high, 5), 5)
+               .rolling(3, min_periods=1).max())
+    add_factor("Alpha33", c_rank(-1 + open_ / close))
+    sd_ratio = (ret.rolling(2, min_periods=2).std()
+                / ret.rolling(5, min_periods=3).std()
+                ).replace([np.inf, -np.inf], 1).fillna(1)
+    add_factor("Alpha34", c_rank(2 - c_rank(sd_ratio) - c_rank(c_delta(close, 1))))
+    add_factor("Alpha38", -c_rank(c_tsrank(open_, 10)) * c_rank(close / open_))
+    add_factor("Alpha40", -c_rank(high.rolling(10, min_periods=1).std())
+               * c_corr(high, vol, 10))
+    adv20 = vol.rolling(20, min_periods=5).mean()
+    add_factor("Alpha43", c_tsrank(vol / adv20, 20)
+               * c_tsrank(-c_delta(close, 7), 8))
+    inner53 = (close - low).replace(0, 0.0001)
+    add_factor("Alpha53", -c_delta(((close - low) - (high - close)) / inner53, 9))
+
+    # --- 量价扩展：波动率、换手率稳定性、流动性 ---
+    add_factor("volatility_3m", ret.rolling(3, min_periods=2).std())
+    add_factor("volatility_6m", ret.rolling(6, min_periods=3).std())
+    add_factor("turnover_mean_3m", turn.rolling(3, min_periods=1).mean())
+    add_factor("turnover_std_3m", turn.rolling(3, min_periods=2).std())
+    add_factor("amihud_3m", (ret.abs() / amount.replace(0, np.nan))
+               .rolling(3, min_periods=2).mean())
+
     return factors
 
 
@@ -265,16 +324,18 @@ def run_factor_test(factors, returns, dates):
 
 
 # ===================== 5. 因子合成与回测 =====================
-def select_factors(summary, icir_threshold=ICIR_THRESHOLD):
-    """按 |ICIR| 阈值选因子，至少保留 3 个。"""
+def select_factors(summary, icir_threshold=ICIR_THRESHOLD, max_factors=MAX_FACTORS):
+    """按 |ICIR| 阈值选因子，再按 |ICIR| 降序截断到上限，至少保留 3 个。"""
     pivot = summary.pivot_table(index="因子", columns="指标", values="ICIR")
     if "RankIC" not in pivot.columns:
         return pivot.index.tolist()
 
-    selected = pivot[pivot["RankIC"].abs() >= icir_threshold].index.tolist()
+    abs_icir = pivot["RankIC"].abs()
+    selected = abs_icir[abs_icir >= icir_threshold].sort_values(ascending=False)
     if len(selected) < 3:
-        selected = pivot["RankIC"].abs().nlargest(3).index.tolist()
-    print(f"\n入选因子（|ICIR|>={icir_threshold}）：{selected}")
+        selected = abs_icir.nlargest(3)
+    selected = selected.index.tolist()[:max_factors]
+    print(f"\n入选因子（|ICIR|>={icir_threshold}，上限 {max_factors}）：{selected}")
     return selected
 
 
@@ -291,8 +352,10 @@ def composite_factor(factors, selected, summary):
     return composite / len(selected)
 
 
-def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN):
+def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN,
+                       output_dir=None, title=None):
     """复合因子取每期前 top_n 只，等权持有，月末调仓。"""
+    output_dir = Path(output_dir) if output_dir is not None else OUTPUT_DIR
     holdings = np.full((len(dates), top_n), np.nan)
     for i in range(len(dates)):
         row = composite.iloc[i].dropna()
@@ -319,19 +382,20 @@ def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN):
         "最大回撤": max_dd,
         "年化换手": outputs["turnover"].mean() * 12,
     })
-    perf.to_csv(OUTPUT_DIR / "performance.csv", encoding="utf-8-sig")
+    perf.to_csv(output_dir / "performance.csv", encoding="utf-8-sig")
 
     fig, ax = plt.subplots(figsize=(10, 5))
     nav.plot(ax=ax, label="策略净值", linewidth=1.5)
     bench = load_benchmark(START, END)["close"].reindex(dates)
     bench_nav = (1 + bench.pct_change(fill_method=None).fillna(0)).cumprod()
     bench_nav.plot(ax=ax, label="沪深300", linewidth=1.5, color="gray")
-    ax.set(xlabel="日期", ylabel="净值（初始=1）", title=f"动量基线 ({MARKET.upper()})")
+    ax.set(xlabel="日期", ylabel="净值（初始=1）",
+           title=title or f"量价基线 ({MARKET.upper()})")
     ax.legend()
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUTPUT_DIR / "nav.png", dpi=150)
-    plt.close(fig)
+    fig.savefig(output_dir / "nav.png", dpi=150)
+    # plt.close(fig)
 
     print("\n策略绩效：")
     print(perf.round(4).to_string())
@@ -356,8 +420,8 @@ def main():
     valid = filter_pool(monthly)
     print(f"  平均每期可交易股票数：{valid.sum(axis=1).mean():.0f}")
 
-    print("\n[4/5] 计算动量因子...")
-    factors = compute_momentum_factors(monthly, valid)
+    print("\n[4/5] 计算量价因子...")
+    factors = compute_price_volume_factors(monthly, valid)
     print(f"  共 {len(factors)} 个因子")
 
     print("\n[5/5] 因子检验与回测...")
