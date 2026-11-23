@@ -52,7 +52,7 @@ All 38 factors are tested individually; those with |ICIR| ≥ 0.2 are kept (capp
 | Maximum drawdown | -70.58% | -58.18% |
 | Annualized turnover | 10.43x | — |
 
-![Baseline NAV](results/baseline/nav.png)
+![Baseline NAV](results/baseline/nav.en.png)
 
 After adding capacity constraints (ADV above the 20th percentile, at least 120 trading days since IPO) and using the same neutralized factors for testing and composition, the baseline turns negative: -28.62% cumulative, -3.04% annualized. The gap versus the previous +91.13% shows that the earlier excess return came mainly from illiquid small caps and is not reproducible once the ADV filter is applied. Annualized turnover of 10.43x costs about 2.1% per year, which does not explain the whole loss; the core issue remains stock-selection style and the long-only structure.
 
@@ -69,7 +69,7 @@ Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 p
 | Maximum drawdown | -41.31% | -40.53% | -36.96% |
 | Annualized turnover | 10.68x | 9.07x | — |
 
-![S7 rolling NAV](results/rolling_top/top100/nav.png)
+![S7 rolling NAV](results/rolling_top/top100/nav.en.png)
 
 S7 beats the benchmark out of sample (+50.10% vs +38.82%, Sharpe 0.31 vs 0.27). The improvement decomposes into **diversification** (largest), **long-side t weighting**, and the **long-side gate**. Two honest caveats: the excess return is **concentrated in 2025** (the strategy lagged the benchmark through 2020-2024 and only overtook it in the 2025 rally), and the drawdown around the **February 2024 small-cap liquidity crisis** (-40.53%) is deeper than the benchmark's -36.96%. See `docs/strategy.md` section 11 for the full ablation and the config-by-holdings scan.
 

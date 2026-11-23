@@ -26,7 +26,7 @@ Core settings:
 | Benchmark | CSI 300 Price Index (sh.000300) |
 | Transaction cost | 0.002 one-way |
 | Position direction | Long-only |
-| Number of holdings per period | Baseline: 10 stocks; S7 comparisons: 10 / 50 / 100 stocks, all equally weighted, $w_i=1/N$ |
+| Number of holdings per period | Baseline: 10 stocks; S7 comparisons: 10 / 50 / 100 stocks, all equally weighted, $w_{i} = \frac{1}{N}$ |
 
 The development sequence is to complete the single-factor baseline first, then add multi-factor combination, factor selection, and capital-allocation optimization. Each step is compared with the preceding step in the same environment and retained only after its incremental contribution is confirmed. Single-factor baseline results are available in `results/baseline/`.
 
@@ -199,16 +199,16 @@ $$
 - The basic threshold for factor inclusion is:
 
 $$
-\lvert \mathrm{ICIR}_k \rvert \geq 0.2
+\vert \mathrm{ICIR}_k \vert \geq 0.2
 $$
 
-- The original rolling model normalized $\lvert \mathrm{ICIR}_k \rvert$ to determine factor weights. S7 uses ICIR only as a preliminary screening threshold; its final weights instead use the $t$-statistics of long-side excess returns. The two approaches must not be conflated.
+- The original rolling model normalized $\vert \mathrm{ICIR}_k \vert$ to determine factor weights. S7 uses ICIR only as a preliminary screening threshold; its final weights instead use the $t$-statistics of long-side excess returns. The two approaches must not be conflated.
 
 ### 3.5 Single-Factor Long-Short Diagnostics and Long-Side Excess Returns
 
 In addition to IC/ICIR, the single-factor tests output the IC hit rate, quintile returns, monotonicity, annual performance, and turnover, as well as the long-short and long-side excess-return diagnostics described in this section. **These diagnostics determine whether factor returns come from the long side or the short side; they do not imply that the actual current portfolio takes short positions.**
 
-At each month-end, stocks are divided into quintiles according to their preprocessed factor scores, with $Q_1$ the lowest group and $Q_5$ the highest. Factor direction is determined by the sign of mean RankIC. The static experiment `optimizer_factor_selection.py` uses full-sample RankIC, whereas `rolling_top_weighted.py` uses only RankIC from the current year's training window:
+At each month-end, stocks are divided into quintiles according to their preprocessed factor scores, with $Q_{1}$ the lowest group and $Q_{5}$ the highest. Factor direction is determined by the sign of mean RankIC. The static experiment `optimizer_factor_selection.py` uses full-sample RankIC, whereas `rolling_top_weighted.py` uses only RankIC from the current year's training window:
 
 $$
 s_k = \mathrm{sign}\left(\overline{\mathrm{RankIC}}_k\right) \in \{-1,+1\}
@@ -218,16 +218,16 @@ The direction-adjusted single-factor long-short return is:
 
 $$
 R^{LS}_{k,t+1}
-= s_k\left(\overline r_{Q_5,t+1}-\overline r_{Q_1,t+1}\right)
+= s_k\left(\overline r_{Q_{5},t+1}-\overline r_{Q_{1},t+1}\right)
 $$
 
-A long-only portfolio cannot use the short leg, so the excess return of the long group relative to the equal-weighted return of the entire current universe is also calculated. If $s_k=+1$, the long group is $Q_5$; if $s_k=-1$, the long group is $Q_1$:
+A long-only portfolio cannot use the short leg, so the excess return of the long group relative to the equal-weighted return of the entire current universe is also calculated. If $s_k=+1$, the long group is $Q_{5}$; if $s_k=-1$, the long group is $Q_{1}$:
 
 $$
 Q^L_{k,t}=
 \begin{cases}
-Q_5, & s_k=+1,\\
-Q_1, & s_k=-1,
+Q_{5}, & s_k=+1,\\
+Q_{1}, & s_k=-1,
 \end{cases}
 \qquad
 R^L_{k,t+1}
@@ -242,7 +242,7 @@ $$
 
 The long-short diagnostics do not deduct actual securities-borrowing costs or consider the availability of shares to borrow; they are used only for factor research. The current backtest portfolio is always long-only and holds Top N stocks at equal weights.
 
-For this strategy, **the long-short diagnostic asks whether the factor works across both tails, while long-side excess return asks whether the tail the strategy can actually buy outperforms the universe**. Suppose a reversal factor has negative mean RankIC, so $s_k=-1$ and its investable long group is the original $Q_1$. If $Q_1$ earns $1\%$ next month, $Q_5$ earns $-8\%$, and the equal-weighted universe earns $5\%$, the direction-adjusted long-short return is $1\%-(-8\%)=9\%$, but long-side excess return is only $1\%-5\%=-4\%$. The factor looks strong on a long-short basis, yet all of that strength depends on declines in $Q_5$. A long-only portfolio cannot capture that short-leg return. If this relationship persists over the sample, S7's long-side gate will reject the factor.
+For this strategy, **the long-short diagnostic asks whether the factor works across both tails, while long-side excess return asks whether the tail the strategy can actually buy outperforms the universe**. Suppose a reversal factor has negative mean RankIC, so $s_k=-1$ and its investable long group is the original $Q_{1}$. If $Q_{1}$ earns $1\%$ next month, $Q_{5}$ earns $-8\%$, and the equal-weighted universe earns $5\%$, the direction-adjusted long-short return is $1\%-(-8\%)=9\%$, but long-side excess return is only $1\%-5\%=-4\%$. The factor looks strong on a long-short basis, yet all of that strength depends on declines in $Q_{5}$. A long-only portfolio cannot capture that short-leg return. If this relationship persists over the sample, S7's long-side gate will reject the factor.
 
 In the static script, S1 adds “annualized long-short return $>0$ and long-short $t\geq2$” to the basic ICIR screen, and S2 additionally requires “annualized long-side return $>0$ and long-side $t>0$.” S4/S7 do not use long-short significance as a selection gate; they instead require “annualized long-side return $>0$ and long-side $t>1$.” S7 differs from S4 only in factor weighting. In other words, long-short diagnostics support factor research and controlled comparisons; they are not short-selling rules in the current S7 portfolio.
 
@@ -263,19 +263,14 @@ The candidate factor pool is controlled at 30–40 factors, with no more than 20
 ### 4.2 Inputs and Outputs
 
 - **Inputs**: the factor exposure matrix $Z$ (stocks × time × factors) after winsorization, standardization, and industry neutralization; monthly IC/ICIR and factor return series for each factor over the training window; and current benchmark returns;
-- **Outputs**: the selected factor set $\mathcal{K}$ (containing $K=\lvert\mathcal K\rvert$ factors) and the weight $\omega_k$ of each selected factor in the composite score.
+- **Outputs**: the selected factor set $\mathcal{K}$ (containing $K=\vert\mathcal K\vert$ factors) and the weight $\omega_k$ of each selected factor in the composite score.
 
 ### 4.3 Target Loss Function (Not Yet Implemented)
 
 The target version optimizes the predictive power and stability of the composite factor, with penalty terms for collinearity, factor count, and direction reversals. **The current S7 does not numerically solve this loss function.**
 
 $$
-\mathcal{L}
-= -\alpha\overline{\mathrm{IC}}_{\mathrm{composite}}
-- \beta\mathrm{ICIR}_{\mathrm{composite}}
-+ \gamma\max_{i\lt j,\;i,j\in\mathcal K}\lvert\rho_{ij}\rvert
-+ \delta\lvert K-K_{\mathrm{target}}\rvert
-+ \eta N_{\mathrm{flip}}
+\mathcal{L}=-\alpha\overline{\mathrm{IC}}_{\mathrm{composite}}-\beta\mathrm{ICIR}_{\mathrm{composite}}+\gamma\max_{i\lt j}\vert\rho_{ij}\vert+\delta\vert K-K_{\mathrm{target}}\vert+\eta N_{\mathrm{flip}}
 $$
 
 The composite factor's IC in period $t$ is:
@@ -294,8 +289,8 @@ The terms have the following meanings:
 | --- | --- | --- |
 | $-\overline{\mathrm{IC}}_{\mathrm{composite}}$ | Higher mean IC of the composite factor is better (negated for inclusion in the minimization) | $\alpha > 0$ |
 | $-\mathrm{ICIR}_{\mathrm{composite}}$ | More stable composite-factor IC is better | $\beta > 0$ |
-| $\max_{i\lt j}\lvert\rho_{ij}\rvert$ | Maximum pairwise correlation among distinct selected factors, penalizing collinearity; excludes self-correlation with $i=j$ | $\gamma > 0$ |
-| $\lvert K-K_{\mathrm{target}}\rvert$ | Penalty for deviation of the factor count from its target (e.g., $K_{\mathrm{target}}=10$) | $\delta > 0$ |
+| $\max_{i\lt j}\vert\rho_{ij}\vert$ | Maximum pairwise correlation among distinct selected factors, penalizing collinearity; excludes self-correlation with $i=j$ | $\gamma > 0$ |
+| $\vert K-K_{\mathrm{target}}\vert$ | Penalty for deviation of the factor count from its target (e.g., $K_{\mathrm{target}}=10$) | $\delta > 0$ |
 | $N_{\mathrm{flip}}$ | Number of factors requiring direction reversal, penalizing excessive reversals | $\eta \geq 0$ |
 
 ### 4.4 Target Constraints and Parameter Values (Mostly Not Yet Implemented)
@@ -313,15 +308,15 @@ Specific values for constraints and penalty terms are determined by “using dat
 | --- | --- | --- |
 | Number of selected factors $K_{\mathrm{target}}$ | 10 (lower bound 3, upper bound 20) | $K<5$ provides insufficient diversification; $K>20$ makes collinearity difficult to control and produces diminishing marginal IC |
 | Annualized volatility cap on single-factor long-short returns | 70th percentile of the candidate pool (approximately 25% for A-share price-volume factors) | Uses a percentile of the candidate-pool distribution to remove unstable tail factors |
-| Pairwise correlation cap $\max_{i\lt j}\lvert\rho_{ij}\rvert$ | 0.7 | Common practice in the literature: $\lvert\rho\rvert>0.7$ indicates high collinearity and $>0.8$ severe collinearity |
-| Style / size exposure cap | $\lvert t\rvert<2$ after neutralization | Uses cross-sectional regressions to test exposure significance |
+| Pairwise correlation cap $\max_{i\lt j}\vert\rho_{ij}\vert$ | 0.7 | Common practice in the literature: $\vert\rho\vert>0.7$ indicates high collinearity and $>0.8$ severe collinearity |
+| Style / size exposure cap | $\vert t\vert<2$ after neutralization | Uses cross-sectional regressions to test exposure significance |
 | Predictive-power and stability weights $\alpha,\beta$ | 1, 1 | Standardize the two terms to comparable scales first |
 | Collinearity / count / reversal penalties $\gamma,\delta,\eta$ | Start at 0.1–0.5 | Enable one at a time and use out-of-sample performance to assess marginal contributions |
 
 The values follow three principles:
 
 1. **Distributional thresholds use candidate-pool statistics**: the volatility cap is a candidate-pool percentile rather than an arbitrary value;
-2. **Structural thresholds follow common practice in the literature**: collinearity at 0.7 and exposure at $\lvert t\rvert<2$ are commonly used standards;
+2. **Structural thresholds follow common practice in the literature**: collinearity at 0.7 and exposure at $\vert t\vert<2$ are commonly used standards;
 3. **Final values rely on out-of-sample sensitivity analysis**: compare out-of-sample Sharpe ratios and maximum drawdowns, and choose the midpoint of a stable region rather than the best-performing point, avoiding overfitted spikes. The target grid is:
 
 $$
@@ -333,18 +328,18 @@ $$
 The five penalty coefficients $\alpha,\beta,\gamma,\delta,\eta$ should not all be tuned simultaneously. The target process should first use preliminary ICIR screening and collinearity removal as the baseline, then enable constraints one at a time. The currently implemented basic ICIR threshold alone is:
 
 $$
-\lvert\mathrm{ICIR}_k\rvert\geq0.2
+\vert\mathrm{ICIR}_k\vert\geq0.2
 $$
 
 **The correspondence between the current code and the above principles is as follows; design goals must not be treated as implemented features. The scripts must be distinguished here: `optimizer_factor_selection.py` is a full-sample static comparison of rules and contains no rolling retraining, whereas `rolling_top_weighted.py` integrates S7 into a 5-year training window and annual out-of-sample validation:**
 
 | Principle / component | Current implementation status |
 | --- | --- |
-| Preliminary ICIR screening | Implemented: $\lvert\mathrm{ICIR}_k\rvert\geq0.2$; static experiments additionally compare 0.3 / 0.4 |
+| Preliminary ICIR screening | Implemented: $\vert\mathrm{ICIR}_k\vert\geq0.2$; static experiments additionally compare 0.3 / 0.4 |
 | Factor-count control | Partially implemented: the static script caps selection at 20 but has no minimum-of-3 constraint; the rolling version also caps selection at 20 and falls back to the top 3 by long-side $t$ when fewer than 3 qualify, relaxing the gates. Neither uses $K_{\mathrm{target}}=10$ or the $\delta$ count penalty |
 | 70th-percentile volatility cap | Not implemented |
 | Collinearity threshold of 0.7 and $0.6/0.7/0.8$ grid | Not implemented; there is currently no collinearity removal |
-| Style / size exposure $\lvert t\rvert<2$ | Not implemented; industry demeaning is not equivalent to an ex post exposure constraint |
+| Style / size exposure $\vert t\vert<2$ | Not implemented; industry demeaning is not equivalent to an ex post exposure constraint |
 | Full loss function and heuristic search | Not implemented; S7 uses fixed-rule screening and weighting |
 | $K_{\mathrm{target}}$ grid | Not implemented; the existing comparisons concern ICIR thresholds and Top N holding counts, which are different |
 | 5-year training window and annual rolling out-of-sample validation | Implemented in `rolling_top_weighted.py`, not in `optimizer_factor_selection.py` |
@@ -353,7 +348,7 @@ $$
 
 Factor subset selection is a combinatorial optimization problem. The target version plans to use heuristic iteration:
 
-1. **Initialization**: select the top $K_{\mathrm{target}}$ factors in descending order of $\lvert\mathrm{ICIR}\rvert$ over the training window as the initial set;
+1. **Initialization**: select the top $K_{\mathrm{target}}$ factors in descending order of $\vert\mathrm{ICIR}\vert$ over the training window as the initial set;
 2. **Perturbation**: in each round, randomly attempt to add or remove one factor, or replace one factor, then recalculate the loss function;
 3. **Acceptance criterion**: accept the new set if its loss is lower; otherwise, accept it with a certain probability to escape local optima;
 4. **Termination**: stop when the iteration limit is reached or no improvement occurs for several consecutive rounds, then output the best factor set.
@@ -368,8 +363,8 @@ $$
 \omega_k^{EW}=\frac{1}{K},
 \qquad
 \omega_k^{ICIR}
-=\frac{\lvert\mathrm{ICIR}_k\rvert}
-{\sum_{j\in\mathcal K}\lvert\mathrm{ICIR}_j\rvert},
+=\frac{\vert\mathrm{ICIR}_k\vert}
+{\sum_{j\in\mathcal K}\vert\mathrm{ICIR}_j\vert},
 \qquad
 \omega_k^{S7}
 =\frac{t^L_k}{\sum_{j\in\mathcal K}t^L_j}
@@ -394,7 +389,7 @@ Current factor weights are not fitted by regression, and classical Ridge / Lasso
 
 **Layer 1: Structural constraints (partially implemented)**
 
-The candidate pool is fixed at 38 factors, the selected count is limited to 3–20, and annual rolling out-of-sample validation reduces overfitting. Collinearity removal and the $\delta\lvert K-K_{\mathrm{target}}\rvert$ count penalty in the target version have not yet been implemented. These structural constraints act similarly to sparse regularization, but do not amount to actually solving an $L_1$ optimization problem.
+The candidate pool is fixed at 38 factors, the selected count is limited to 3–20, and annual rolling out-of-sample validation reduces overfitting. Collinearity removal and the $\delta\vert K-K_{\mathrm{target}}\vert$ count penalty in the target version have not yet been implemented. These structural constraints act similarly to sparse regularization, but do not amount to actually solving an $L_1$ optimization problem.
 
 **Layer 2: Target-version weight shrinkage (not yet implemented)**
 
@@ -422,7 +417,7 @@ The first-order condition with respect to $\omega_k$ yields the shrunk weights i
 
 The current S7 determines factor sets, directions, and weights using only the training window; the test year does not participate in that year's factor fitting (see Section 4.8). Once the target version is implemented, $\lambda$ must likewise be selected only within the training window.
 
-If factor weights are instead fitted directly by cross-sectional regression in the future, i.e., $\min_\omega\lVert r-Z\omega\rVert^2$, standard Ridge or Lasso would then be used, choosing either that approach or ICIR / long-side $t$ normalization rather than stacking two sources of weights.
+If factor weights are instead fitted directly by cross-sectional regression in the future, i.e., $\min_\omega\Vert r-Z\omega\Vert^2$, standard Ridge or Lasso would then be used, choosing either that approach or ICIR / long-side $t$ normalization rather than stacking two sources of weights.
 
 ### 4.8 Rolling Retraining
 
@@ -469,7 +464,7 @@ The two layers are separated because IC / ICIR are low-frequency statistics: mon
 
 Current implementation status: both frequency layers have been implemented. The script is `baseline/rolling_multifactor.py`, with outputs in `results/rolling/`.
 
-- Annual retraining: 6 folds (2015–2019→2020, 2016–2020→2021 … 2020–2024→2025). Each fold estimates ICIR using only RankIC within the training window, screens at $\lvert\mathrm{ICIR}\rvert\geq0.2$, applies an upper limit of 20 and a lower limit of 3 factors, normalizes $\lvert\mathrm{ICIR}\rvert$ for weights, and takes the sign of mean IC for direction. Each fold selects 20 factors, with different factor sets and weights each year; see `factor_selection.csv`;
+- Annual retraining: 6 folds (2015–2019→2020, 2016–2020→2021 … 2020–2024→2025). Each fold estimates ICIR using only RankIC within the training window, screens at $\vert\mathrm{ICIR}\vert\geq0.2$, applies an upper limit of 20 and a lower limit of 3 factors, normalizes $\vert\mathrm{ICIR}\vert$ for weights, and takes the sign of mean IC for direction. Each fold selects 20 factors, with different factor sets and weights each year; see `factor_selection.csv`;
 - Monthly stock rotation: at each month-end, recalculate $S_i$ using the factor set and weights determined for that year, rerank, and hold the top 10 stocks at equal weights;
 - Out-of-sample 72 periods (2020-01-23 ~ 2025-12-31): cumulative return $-6.40\%$, annualized return $-1.11\%$, annualized volatility $26.38\%$, Sharpe ratio $-0.042$, maximum drawdown $-41.31\%$, and annualized turnover $10.68$x; over the same period, the CSI 300 returned $+38.82\%$ cumulatively, with a Sharpe ratio of $0.274$ and maximum drawdown of $-36.96\%$;
 - The baseline script `price_volume_baseline.py` retains one-time full-sample factor selection as a static control group. After adding capacity constraints (bottom 20% ADV percentile and at least 120 trading days since listing) and unifying testing and combination on the same neutralized factors, the baseline over the full period (2015–2025) has cumulative return $-28.62\%$, annualized return $-3.04\%$, Sharpe ratio $-0.090$, and maximum drawdown $-70.58\%$, underperforming the benchmark's $+32.54\%$ over the same period. The rolling version covers only out-of-sample 2020–2025; because these periods differ, their numerical results cannot be compared directly.
@@ -486,7 +481,7 @@ Monthly rebalancing rotates stocks only, not factors: the factor set and weights
 
 1. Calculate the current composite score $S_i$ for each stock;
 2. Sort by $S_i$ from high to low and select the top N stocks as the current holdings list;
-3. Output the N stock codes and then determine weights; all current backtests use equal weights, $w_i=1/N$.
+3. Output the N stock codes and then determine weights; all current backtests use equal weights, $w_{i} = \frac{1}{N}$.
 
 **Top N refers to the number of holdings, not the number of factors or the rolling-window length.** The baseline uses N=10; the full-sample scan compares N=10 / 20 / 50 / 100, and the S7 rolling out-of-sample test compares N=10 / 50 / 100. A smaller N makes the portfolio more concentrated and increases single-stock impact; a larger N provides more diversification but dilutes marginal signals.
 
@@ -525,7 +520,7 @@ After solving, normalize $w = x / \mathbf{1}^\top x$. Constrained methods (GMVP,
 
 The selection criterion is fixed before reviewing results: over the same out-of-sample period, the method with the **highest terminal net asset value and the lowest maximum drawdown** wins.
 
-For simplicity in the current V1 stage, all configurations use equal weights (EW), $w_i=1/N$; out-of-sample comparison of the eight methods remains to be implemented. When IV / GMVP / ERC are introduced later, the upper-level stock-selection, backtest, and attribution interfaces will remain unchanged; only the weight-generation function will be replaced.
+For simplicity in the current V1 stage, all configurations use equal weights (EW), $w_{i} = \frac{1}{N}$; out-of-sample comparison of the eight methods remains to be implemented. When IV / GMVP / ERC are introduced later, the upper-level stock-selection, backtest, and attribution interfaces will remain unchanged; only the weight-generation function will be replaced.
 
 ## 6. Backtest Settings
 
@@ -654,14 +649,14 @@ Selection and weighting rules are compared within the tradable universe (`baseli
 Diagnostics show that all top-20 factors have positive annualized long-short returns and $t$-statistics greater than 2, so the long-short gates in S1–S3 do not remove any further factors. However, annualized long-side excess returns are only 0.8%–4.7%, far below long-short returns of 6%–16.5%, indicating that many factors rely more heavily on the short leg. A long-only strategy should examine the long side directly, so S7 no longer requires long-short significance and instead uses:
 
 $$
-\lvert\mathrm{ICIR}_k\rvert\geq0.2,
+\vert\mathrm{ICIR}_k\vert\geq0.2,
 \qquad
 \mathrm{Ann}\left(R^L_k\right)>0,
 \qquad
 t^L_k\geq1
 $$
 
-The sample used for these statistics depends on the implementation: the static scan uses the full sample and is therefore an in-sample comparison, whereas the rolling version uses only the preceding 5 years for each annual fit. Both implementations use $\omega_k^{S7}$ from Section 4.6 for factor weights and retain at most 20 factors. The static scan truncates by $\lvert\mathrm{ICIR}\rvert$ and specifies the long-side $t$ condition as $>1$; the rolling version ranks and truncates by long-side $t$-statistic, specifies the gate as $\geq1$, and additionally includes a fallback rule that selects the top 3 factors by long-side $t$ when fewer than 3 factors qualify.
+The sample used for these statistics depends on the implementation: the static scan uses the full sample and is therefore an in-sample comparison, whereas the rolling version uses only the preceding 5 years for each annual fit. Both implementations use $\omega_k^{S7}$ from Section 4.6 for factor weights and retain at most 20 factors. The static scan truncates by $\vert\mathrm{ICIR}\vert$ and specifies the long-side $t$ condition as $>1$; the rolling version ranks and truncates by long-side $t$-statistic, specifies the gate as $\geq1$, and additionally includes a fallback rule that selects the top 3 factors by long-side $t$ when fewer than 3 factors qualify.
 
 Configuration × holding-count comparison (full sample in-sample, cumulative return / Sharpe ratio):
 
