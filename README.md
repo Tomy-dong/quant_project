@@ -1,101 +1,103 @@
-# A 股多因子选股与市场中性策略
+# A-Share Multi-Factor Stock Selection and Market-Neutral Strategy
 
-策略以量价因子为 alpha 来源，组合层面分为主动管理与市场中性两条分支：主动管理保留基准 Beta，追求相对沪深 300 的超额；市场中性用股指期货对冲系统性 Beta，只保留因子收益。两条分支共用同一套因子与合成结果。
+**English** | [中文](README.zh-CN.md)
 
-本仓库当前实现的是**主动管理（多头）分支**的数据管线、因子检验、单因子基线与滚动多因子（年频换因子 + 月频换股）；优化器搜索与市场中性分支仍在开发中。
+The strategy uses price-volume factors as its alpha source. At the portfolio level it has two branches: active management, which keeps benchmark beta and targets excess return over the CSI 300; and market neutral, which hedges systematic beta with index futures and keeps only factor return. Both branches share the same factors and composite scores.
 
-## 目录
+This repository currently implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, and rolling multi-factor model (annual factor re-selection + monthly rebalancing). Optimizer search and the market-neutral branch are still under development.
 
-- [结果摘要](#结果摘要)
-- [项目结构](#项目结构)
-- [快速开始](#快速开始)
-- [数据说明](#数据说明)
-- [策略要点](#策略要点)
-- [已知限制](#已知限制)
-- [进度](#进度)
+## Contents
 
-## 结果摘要
+- [Results Summary](#results-summary)
+- [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
+- [Data Notes](#data-notes)
+- [Strategy Highlights](#strategy-highlights)
+- [Known Limitations](#known-limitations)
+- [Progress](#progress)
 
-回测区间 2015-01-01 至 2025-12-31，月末调仓，单边费率 0.002，基准为沪深 300 价格指数。
+## Results Summary
 
-### 单因子 IC
+Backtest period 2015-01-01 to 2025-12-31, monthly rebalancing, one-way cost 0.002, benchmark is the CSI 300 price index.
 
-38 个量价因子的 RankIC 与 ICIR，下表按 |ICIR| 排序取前 10，完整结果见 [`results/baseline/factor_summary.csv`](results/baseline/factor_summary.csv)。
+### Single-Factor IC
 
-| 因子 | 含义 | RankIC | ICIR | IC>0 占比 |
+RankIC and ICIR of the 38 price-volume factors. The table shows the top 10 by |ICIR|; full results are in [`results/baseline/factor_summary.csv`](results/baseline/factor_summary.csv).
+
+| Factor | Description | RankIC | ICIR | Share of IC > 0 |
 | --- | --- | ---: | ---: | ---: |
-| `turnover_std_3m` | 3 月换手率波动 | -0.0703 | -0.720 | 20.6% |
-| `turnover_mean_3m` | 3 月平均换手率 | -0.0798 | -0.657 | 23.7% |
-| `volatility_3m` | 3 月收益率波动 | -0.0503 | -0.600 | 26.7% |
-| `return_1m` | 1 个月动量 | -0.0644 | -0.589 | 26.7% |
-| `Alpha20` | 开盘价相对前收盘的排名 | 0.0547 | 0.565 | 65.6% |
-| `wgt_return_1m` | 换手率加权 1 月收益 | -0.0591 | -0.559 | 26.7% |
-| `Alpha12` | 成交量变化 × 价格反向变化 | 0.0308 | 0.536 | 69.5% |
-| `Alpha9` | 价格与成交量的一期差分相关 | 0.0476 | 0.531 | 71.0% |
-| `volatility_6m` | 6 月收益率波动 | -0.0535 | -0.494 | 30.5% |
-| `Alpha13` | 收盘价与成交量秩协方差取反 | 0.0361 | 0.486 | 68.7% |
+| `turnover_std_3m` | 3-month turnover volatility | -0.0703 | -0.720 | 20.6% |
+| `turnover_mean_3m` | 3-month average turnover | -0.0798 | -0.657 | 23.7% |
+| `volatility_3m` | 3-month return volatility | -0.0503 | -0.600 | 26.7% |
+| `return_1m` | 1-month momentum | -0.0644 | -0.589 | 26.7% |
+| `Alpha20` | Rank of open relative to previous close | 0.0547 | 0.565 | 65.6% |
+| `wgt_return_1m` | Turnover-weighted 1-month return | -0.0591 | -0.559 | 26.7% |
+| `Alpha12` | Volume change × reversed price change | 0.0308 | 0.536 | 69.5% |
+| `Alpha9` | One-period difference correlation of price and volume | 0.0476 | 0.531 | 71.0% |
+| `volatility_6m` | 6-month return volatility | -0.0535 | -0.494 | 30.5% |
+| `Alpha13` | Negated rank covariance of close and volume | 0.0361 | 0.486 | 68.7% |
 
-换手、波动与反转类因子 IC 为负，说明低换手、低波动、近期下跌的股票表现更好；Alpha 反转类为正。IC 绝对值只有 0.03–0.08，但 ICIR 达到 0.49–0.72，说明方向稳定、信噪比尚可。
+Turnover, volatility, and reversal factors have negative IC: low-turnover, low-volatility, recently fallen stocks do better. Alpha reversal factors are positive. Absolute IC is only 0.03–0.08, but ICIR reaches 0.49–0.72, so the direction is stable and the signal-to-noise ratio is acceptable.
 
-### 基线组合表现
+### Baseline Portfolio
 
-38 个因子先做单因子检验，按 |ICIR| ≥ 0.2 保留 20 个（上限 20），方向校准后等权合成，每期取分数最高的 10 只等权持有：
+All 38 factors are tested individually; those with |ICIR| ≥ 0.2 are kept (capped at 20), sign-adjusted, and equal-weighted into a composite. Each month the top 10 stocks are held with equal weights:
 
-| 指标 | 量价基线（Top 10） | 沪深 300 |
+| Metric | Price-Volume Baseline (Top 10) | CSI 300 |
 | --- | ---: | ---: |
-| 累计收益 | -28.62% | 32.54% |
-| 年化收益 | -3.04% | 2.61% |
-| 年化波动 | 33.91% | 24.68% |
-| 夏普比率 | -0.09 | 0.11 |
-| 最大回撤 | -70.58% | -58.18% |
-| 年化换手 | 10.43 倍 | — |
+| Cumulative return | -28.62% | 32.54% |
+| Annualized return | -3.04% | 2.61% |
+| Annualized volatility | 33.91% | 24.68% |
+| Sharpe ratio | -0.09 | 0.11 |
+| Maximum drawdown | -70.58% | -58.18% |
+| Annualized turnover | 10.43x | — |
 
-![基线净值](results/baseline/nav.png)
+![Baseline NAV](results/baseline/nav.png)
 
-接入容量约束（ADV 最低 20% 分位、上市满 120 个交易日）并把因子检验与合成统一到同一版中性化因子后，基线转为负收益：累计 -28.62%、年化 -3.04%。这与上一版 +91.13% 的差异说明，此前的超额主要来自低流动性小盘股，被 ADV 过滤后不可复现。年化换手 10.43 倍对应约 2.1% 的成本拖累，不足以解释全部亏损，核心仍是选股风格与只做多结构。
+After adding capacity constraints (ADV above the 20th percentile, at least 120 trading days since IPO) and using the same neutralized factors for testing and composition, the baseline turns negative: -28.62% cumulative, -3.04% annualized. The gap versus the previous +91.13% shows that the earlier excess return came mainly from illiquid small caps and is not reproducible once the ADV filter is applied. Annualized turnover of 10.43x costs about 2.1% per year, which does not explain the whole loss; the core issue remains stock-selection style and the long-only structure.
 
-### 滚动多因子（样本外）
+### Rolling Multi-Factor (Out-of-Sample)
 
-年频换因子 + 月频换股，2020-01-23 至 2025-12-31，共 72 期：
+Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 periods:
 
-| 指标 | 滚动多因子 | 沪深 300 |
+| Metric | Rolling Multi-Factor | CSI 300 |
 | --- | ---: | ---: |
-| 累计收益 | -6.40% | 38.82% |
-| 年化收益 | -1.11% | 5.68% |
-| 年化波动 | 26.38% | 20.69% |
-| 夏普比率 | -0.04 | 0.27 |
-| 最大回撤 | -41.31% | -36.96% |
-| 年化换手 | 10.68 倍 | — |
+| Cumulative return | -6.40% | 38.82% |
+| Annualized return | -1.11% | 5.68% |
+| Annualized volatility | 26.38% | 20.69% |
+| Sharpe ratio | -0.04 | 0.27 |
+| Maximum drawdown | -41.31% | -36.96% |
+| Annualized turnover | 10.68x | — |
 
-![滚动多因子净值](results/rolling/nav.png)
+![Rolling multi-factor NAV](results/rolling/nav.png)
 
-样本外累计 -6.40%，跑输基准 45 个百分点，最大回撤也比基准深 4.4 个百分点。年度重训与月频换股没有改变结论：在剔除低流动性股票、口径统一之后，这套只做多的量价组合暂时没有可交易的超额。
+Out-of-sample cumulative return is -6.40%, 45 percentage points behind the benchmark, with a maximum drawdown 4.4 points deeper. Annual retraining and monthly rebalancing do not change the conclusion: after removing illiquid stocks and unifying the factor pipeline, this long-only price-volume portfolio has no tradable excess return for now.
 
-## 项目结构
+## Project Structure
 
 ```
 .
-├── baseline/                  单因子基线、多空诊断与滚动多因子
+├── baseline/                  Single-factor baseline, long-short diagnosis, rolling model
 │   ├── price_volume_baseline.py
 │   ├── factor_longshort.py
 │   └── rolling_multifactor.py
-├── data/                      行情数据（不纳入版本管理）
-│   └── raw/                   每只股票一个长表 CSV
-├── data_io/                   宽表读取
+├── data/                      Market data (not versioned)
+│   └── raw/                   One long-table CSV per stock
+├── data_io/                   Wide-table readers
 ├── docs/
-│   └── strategy.md            策略设计文档
+│   └── strategy.md            Strategy design document (Chinese)
 ├── results/
-│   ├── baseline/              基线回测产物
+│   ├── baseline/              Baseline outputs
 │   │   ├── factor_summary.csv
 │   │   ├── longshort.csv
 │   │   ├── performance.csv
 │   │   └── nav.png
-│   └── rolling/               滚动多因子产物
+│   └── rolling/               Rolling model outputs
 │       ├── factor_selection.csv
 │       ├── composite_factor.csv
 │       ├── performance.csv
 │       └── nav.png
-├── scripts/                   数据下载与宽表转换
+├── scripts/                   Data download and wide-table conversion
 │   ├── 00_auto_resume_download.py
 │   ├── 01_download_a_share.py
 │   ├── 01a_download_sh.py
@@ -106,73 +108,73 @@
 │   ├── 03_download_index_aux.py
 │   ├── _baostock_common.py
 │   └── _pivot_common.py
-└── utils/                     因子检验、选股与净值计算
+└── utils/                     Factor tests, stock selection, NAV calculation
 ```
 
-## 快速开始
+## Quick Start
 
-环境要求 Python 3.9+。
+Python 3.9+ is required.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 1. 下载数据
+### 1. Download Data
 
-仓库已附带打包好的数据分卷 `data_archive/data.zip.001`–`.005`（共约 416 MB，因 GitHub 单文件 100 MB 限制拆分）。恢复方式：把 5 个分卷放在同一目录，执行
+The repo ships a split data archive `data_archive/data.zip.001`–`.005` (about 416 MB total, split because of GitHub's 100 MB per-file limit). To restore it, put the five parts in one directory and run
 
 ```bat
 copy /b data.zip.001 + data.zip.002 + data.zip.003 + data.zip.004 + data.zip.005 data.zip
 ```
 
-再把 `data.zip` 解压到 `data/` 即可。也可以跳过压缩包，直接运行下面的下载脚本重新取数。
+Then unzip `data.zip` into `data/`. You can also skip the archive and re-download the data with the scripts below.
 
-先取辅助数据（沪深 300、交易日历、行业分类、上市退市日期），约 1 分钟：
+First fetch auxiliary data (CSI 300, trading calendar, industry classification, IPO/delisting dates), about one minute:
 
 ```bash
 python scripts/03_download_index_aux.py
 ```
 
-再下载全市场日线、复权因子与季度股本。默认 2 进程；Baostock 请求频率过高会临时封禁，脚本内置黑名单熔断，检测到封禁立即退出，已下载文件自动跳过：
+Then download market-wide daily bars, adjustment factors, and quarterly share counts. Two processes by default. Baostock temporarily bans frequent requests; the scripts include a circuit breaker that exits on a ban and skips files already downloaded:
 
 ```bash
 python scripts/01_download_a_share.py
 ```
 
-如果封禁频繁，可以挂自动续传守护，封了等、解除后续，无需人工值守：
+If bans are frequent, run the auto-resume daemon, which waits out the ban and continues without supervision:
 
 ```bash
 python scripts/00_auto_resume_download.py
 ```
 
-只想跑单个市场：
+To download a single market only:
 
 ```bash
-python scripts/01a_download_sh.py    # 沪市
-python scripts/01b_download_sz.py    # 深市
+python scripts/01a_download_sh.py    # Shanghai
+python scripts/01b_download_sz.py    # Shenzhen
 ```
 
-### 2. 转宽表
+### 2. Convert to Wide Tables
 
 ```bash
 python scripts/02_pivot_to_wide.py
 ```
 
-输出 `close_sh.csv`、`adj_factor_sz.csv` 等宽表，以及派生的 `adj_close_*.csv`、`total_mv_*.csv`、`circ_mv_*.csv`。
+This writes wide tables such as `close_sh.csv` and `adj_factor_sz.csv`, plus derived `adj_close_*.csv`, `total_mv_*.csv`, and `circ_mv_*.csv`.
 
-### 3. 跑基线
+### 3. Run the Baseline
 
 ```bash
 python baseline/price_volume_baseline.py
 ```
 
-结果写入 `results/baseline/`。
+Results are written to `results/baseline/`.
 
-## 数据说明
+## Data Notes
 
-行情数据体积较大，不放入仓库，需要按上面的步骤重新下载。Baostock 对请求频率和累计请求量都有限制，4 进程左右会触发黑名单（错误码 `10001011`），封禁通常 1 小时到 12 小时不等，切换网络可以更换出口 IP。脚本默认 2 进程并带熔断，重跑会自动续传。
+Market data is large and is not committed, so re-download it as described above. Baostock limits both request rate and cumulative request count; around four processes trigger the blacklist (error code `10001011`). Bans usually last from one to twelve hours, and switching networks changes the outbound IP. The scripts default to two processes with a circuit breaker and resume automatically on rerun.
 
-每只股票的长表字段：
+Fields in each per-stock long table:
 
 ```
 date, code, open, high, low, close, preclose, volume, amount,
@@ -180,38 +182,38 @@ turn, tradestatus, pctChg, isST, peTTM, pbMRQ,
 backAdjustFactor, totalShare, liqaShare
 ```
 
-## 策略要点
+## Strategy Highlights
 
-完整设计见 [`docs/strategy.md`](docs/strategy.md)。
+The full design is in [`docs/strategy.md`](docs/strategy.md) (Chinese).
 
-- 全链路只用一套后复权价格，因子、收益与净值同口径；
-- 股票池剔除 ST、次新股（上市不满 120 个交易日）与 ADV 最低 20% 的股票，容量约束前置；
-- 不设初始资金，净值按持仓权重计算，ADV 只作为流动性约束；
-- 因子做 MAD 去极值、行业去均值、Z-score 标准化，检验与合成使用同一版因子；
-- 因子权重取训练窗口内 ICIR 归一化，不使用时序模型预测因子收益；
-- 5 年训练窗口、1 年滚动步长，样本外 2020–2025；
-- 调仓用漂移后权重计算换手，避免高估成本；
-- 资金配置规划等权、逆波动率、逆方差、最小方差、等风险贡献、风险预算、最大分散化、最大去相关八种方法（待实现，V1 为等权）。
+- One back-adjusted price series end to end, so factors, returns, and NAV share the same basis;
+- The universe excludes ST stocks, recent IPOs (less than 120 trading days), and the bottom 20% by ADV; capacity screening happens before factor tests;
+- No initial capital is assumed; NAV is computed from portfolio weights, and ADV is only a liquidity constraint;
+- Factors are winsorized with MAD, industry-demeaned, and Z-scored; tests and composition use the same version;
+- Factor weights are normalized |ICIR| over the training window; no time-series model forecasts factor returns;
+- Five-year training window, one-year rolling step, out-of-sample 2020–2025;
+- Turnover is computed from drifted weights to avoid overstating costs;
+- Capital allocation will cover eight methods: equal weight, inverse volatility, inverse variance, minimum variance, equal risk contribution, risk budgeting, maximum diversification, and maximum decorrelation (planned; V1 is equal weight).
 
-## 已知限制
+## Known Limitations
 
-1. 基准为沪深 300 价格指数，不含分红再投；个股后复权收益含分红，超额口径偏保守。
-2. Baostock 无法获取已退市股票的日线，2015–2025 年退市的约 241 只标的缺失，回测存在幸存者偏差，收益略偏乐观。
-3. 行业分类只有当期快照，早期年份的行业中性化存在轻微偏差。
-4. 股本为季度快照，市值计算无法精确到日。
-5. Baostock 不支持北交所，本文「全 A」指沪市 + 深市。
+1. The benchmark is the CSI 300 price index without dividends, while stock returns are back-adjusted and include dividends, so the excess-return basis is conservative.
+2. Baostock does not provide daily bars for delisted stocks; about 241 names delisted during 2015–2025 are missing, so the backtest has survivorship bias and returns are slightly optimistic.
+3. Industry classification is a current snapshot only, so industry neutralization in early years is slightly biased.
+4. Share counts are quarterly snapshots, so market cap cannot be computed exactly by day.
+5. Baostock does not cover the Beijing Stock Exchange; "all A-shares" here means Shanghai + Shenzhen.
 
-## 进度
+## Progress
 
-- [x] 沪深 A 股数据下载与宽表转换
-- [x] 后复权价格、月频面板、股票池与容量筛选
-- [x] 38 个量价因子与单因子检验
-- [x] 38 个因子的多空收益诊断
-- [x] 单因子基线回测
-- [x] 滚动多因子（年频换因子、月频换股，ICIR 降级筛选）
-- [ ] 优化器一：因子搜索与权重收缩
-- [ ] 优化器二：八种资金配置方法对比
-- [ ] 收益归因
-- [ ] Fama-French 三因子对比
-- [ ] 市场中性分支（股指期货对冲、净 Beta 约束、对冲成本）
-- [ ] 雪球模拟盘跟踪
+- [x] Shanghai/Shenzhen A-share download and wide-table conversion
+- [x] Back-adjusted prices, monthly panel, universe and capacity filters
+- [x] 38 price-volume factors and single-factor tests
+- [x] Long-short return diagnosis for the 38 factors
+- [x] Single-factor baseline backtest
+- [x] Rolling multi-factor model (annual factor re-selection, monthly rebalancing, ICIR fallback rule)
+- [ ] Optimizer 1: factor search and weight shrinkage
+- [ ] Optimizer 2: comparison of eight capital allocation methods
+- [ ] Return attribution
+- [ ] Fama-French three-factor comparison
+- [ ] Market-neutral branch (index futures hedge, net-beta constraint, hedge cost)
+- [ ] Xueqiu paper-trading tracking

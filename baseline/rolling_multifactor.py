@@ -12,6 +12,23 @@
 用法
 ----
     python baseline/rolling_multifactor.py
+
+Rolling multifactor: annual factor rotation + monthly stock rotation.
+
+The only difference from price_volume_baseline.py is at the factor layer:
+
+- Baseline: compute IC/ICIR over the full 2015-2025 sample, pick factors once;
+  it is a static control group that contains test-period information.
+- This script: on the first rebalance day of each year, retrain the factor set
+  and weights on the past 5 years; they stay fixed within the year and only
+  stocks are rotated monthly.
+
+The factor lookback window does not change with the year (see docs/strategy.md
+3.1); what changes each year is only "which factors" and "what weights".
+
+Usage
+-----
+    python baseline/rolling_multifactor.py
 """
 
 import sys
@@ -38,20 +55,24 @@ from utils.data_standardize import preprocess
 OUTPUT_DIR = HERE.parent / "results" / "rolling"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ===================== 配置 =====================
-TRAIN_YEARS = 5           # 训练窗口：5 年
-OOS_START_YEAR = 2020     # 样本外起始年份
-OOS_END_YEAR = 2025       # 样本外结束年份
-ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限
-MAX_FACTORS = 20          # 入选因子数上限
-MIN_FACTORS = 3           # 入选因子数下限
+# ===================== 配置 / Config =====================
+TRAIN_YEARS = 5           # 训练窗口：5 年 / training window: 5 years
+OOS_START_YEAR = 2020     # 样本外起始年份 / first out-of-sample year
+OOS_END_YEAR = 2025       # 样本外结束年份 / last out-of-sample year
+ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限 / min |ICIR| to be selected
+MAX_FACTORS = 20          # 入选因子数上限 / max number of factors
+MIN_FACTORS = 3           # 入选因子数下限 / min number of factors
 
 
-# ===================== 1. 训练窗口内的 RankIC =====================
+# ===================== 1. 训练窗口内的 RankIC / RankIC within the training window =====================
 def rank_ic_panel(factors, returns):
     """全样本 RankIC 序列：IC_t 用 t 期因子与 t+1 期收益，索引记在 t+1。
 
     只做截面排名相关，不涉及参数拟合，后续按训练窗口切片即可复用。
+    Full-sample RankIC series: IC_t uses the factor at t and the return at t+1,
+    indexed at t+1.
+    Only cross-sectional rank correlation, no parameter fitting, so it can be
+    sliced by training window and reused later.
     """
     ret_rank = returns.rank(axis=1)
     rv = ret_rank.values
@@ -69,13 +90,17 @@ def rank_ic_panel(factors, returns):
 
 
 def fit_fold(ic_series, year):
-    """用 year 之前的 5 年估 ICIR，选因子并给出 |ICIR| 归一化权重与方向。"""
+    """用 year 之前的 5 年估 ICIR，选因子并给出 |ICIR| 归一化权重与方向。
+    Estimate ICIR from the 5 years before year, pick factors and return
+    |ICIR|-normalized weights and directions.
+    """
     train_start = pd.Timestamp(f"{year - TRAIN_YEARS}-01-01")
     train_end = pd.Timestamp(f"{year - 1}-12-31")
 
     rows = []
     for name, ic in ic_series.items():
         # IC 索引在 t+1，要求因子与收益两端都落在训练窗口内
+        # IC is indexed at t+1; both factor and return must lie inside the training window
         seg = ic.loc[(ic.index > train_start) & (ic.index <= train_end)].dropna()
         if len(seg) < 12:
             continue
@@ -110,9 +135,12 @@ def fit_fold(ic_series, year):
     }
 
 
-# ===================== 2. 合成当期分数 =====================
+# ===================== 2. 合成当期分数 / Build current-period scores =====================
 def build_composite(zfactors, fit, year):
-    """当年各月：sum_k w_k * sign_k * z_{i,k}，因子集与权重年内固定。"""
+    """当年各月：sum_k w_k * sign_k * z_{i,k}，因子集与权重年内固定。
+    For each month of the year: sum_k w_k * sign_k * z_{i,k}; the factor set and
+    weights are fixed within the year.
+    """
     start = pd.Timestamp(f"{year}-01-01")
     end = pd.Timestamp(f"{year}-12-31")
 
@@ -125,7 +153,7 @@ def build_composite(zfactors, fit, year):
     return comp
 
 
-# ===================== 3. 滚动重训 =====================
+# ===================== 3. 滚动重训 / Rolling retraining =====================
 def run_rolling(factors, returns, dates):
     print("预计算截面预处理（MAD + 行业中性化 + Z-score）...")
     zfactors = {name: preprocess(fac) for name, fac in factors.items()}
@@ -173,7 +201,7 @@ def run_rolling(factors, returns, dates):
     return outputs, perf, log
 
 
-# ===================== 主流程 =====================
+# ===================== 主流程 / Main flow =====================
 def main():
     print(f"市场：{MARKET} | 训练窗口：{TRAIN_YEARS} 年 | "
           f"样本外：{OOS_START_YEAR}-{OOS_END_YEAR}")

@@ -9,6 +9,20 @@
 用法
 ----
     python baseline/factor_longshort.py
+
+Long-short return diagnosis for 38 price-volume factors.
+
+For each factor, split the current-period preprocessed scores into 5 groups and
+compute the equal-weight return of the next-period Top group minus Bottom group,
+then calibrate by the IC direction (a positive value means the factor works in
+its IC direction).
+
+Outputs results/baseline/longshort.csv and shows it merged with the IC/ICIR from
+factor_summary.csv.
+
+Usage
+-----
+    python baseline/factor_longshort.py
 """
 
 import sys
@@ -33,7 +47,10 @@ N_GROUP = 5
 
 
 def long_short_series(score, returns):
-    """逐月分 N_GROUP 组，返回 Top - Bottom 的等权收益序列。"""
+    """逐月分 N_GROUP 组，返回 Top - Bottom 的等权收益序列。
+    Split into N_GROUP groups each month and return the equal-weight Top - Bottom
+    return series.
+    """
     out = []
     idx = []
     for i in range(len(score.index) - 1):
@@ -53,7 +70,9 @@ def long_short_series(score, returns):
 
 
 def stats(ls):
-    """年化收益、夏普、t 值、月胜率、最大回撤。"""
+    """年化收益、夏普、t 值、月胜率、最大回撤。
+    Annualized return, Sharpe, t-stat, monthly win rate, max drawdown.
+    """
     ls = ls.dropna()
     n = len(ls)
     nav = (1 + ls).cumprod()

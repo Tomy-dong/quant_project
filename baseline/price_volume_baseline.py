@@ -28,6 +28,49 @@ Alpha101 精选（21 个）：Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/
 用法
 ----
     python baseline/price_volume_baseline.py
+
+用途 / Purpose
+--------------
+作为多因子策略的对照组，回答一个最基本的问题：只用纯量价信息做多头
+选股，在 A 股能不能赚钱。结论是否定的，具体数字见 results/baseline/。
+Control group for the multifactor strategy, answering a basic question: can a
+long-only book built on price-volume data alone make money in A-shares? The
+answer is no; see results/baseline/ for the exact numbers.
+
+流程 / Pipeline
+--------------
+数据载入 -> 月末采样 -> 股票池过滤 -> 因子计算(38 个量价因子)
+-> 单因子检验(IC/分组/多空) -> 按 ICIR 选因子并等权合成
+-> Top N 等权持有、月末调仓 -> 绩效输出
+Load data -> month-end sampling -> universe filtering -> factor calculation
+(38 price-volume factors) -> single-factor tests (IC / group / long-short) ->
+select factors by ICIR and equal-weight them -> hold Top N equally, rebalance
+month-end -> performance output.
+
+因子 / Factors
+--------------
+华泰金工系列（12 个）：return_Nm、wgt_return_Nm、exp_wgt_return_3/6/12m、HAlpha
+Alpha101 精选（21 个）：Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
+量价扩展（5 个）：volatility_3m/6m、turnover_mean_3m、turnover_std_3m、amihud_3m
+Huatai quant series (12): return_Nm, wgt_return_Nm, exp_wgt_return_3/6/12m, HAlpha
+Selected Alpha101 (21): Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
+Price-volume extensions (5): volatility_3m/6m, turnover_mean_3m, turnover_std_3m, amihud_3m
+
+注意 / Notes
+------------
+1. 因子只用后复权 OHLCV 与换手率，不引入财务数据。
+2. wgt_return / exp_wgt_return 用月频换手率均值近似日频换手率加权，
+   与研报原始定义存在口径差异，仅用于基线对照。
+3. 回测为等权 Top N，不含资金配置优化，费率单边 0.002。
+1. Factors use only back-adjusted OHLCV and turnover rate; no fundamentals.
+2. wgt_return / exp_wgt_return approximate daily turnover weighting with the
+   monthly mean turnover; this differs from the original report definition and
+   is used only for baseline comparison.
+3. Backtest is equal-weight Top N with no capital allocation; one-way cost 0.002.
+
+用法 / Usage
+------------
+    python baseline/price_volume_baseline.py
 """
 
 import sys
@@ -55,27 +98,29 @@ from utils.stockselection import stock_selection
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"] = False
 
-# ===================== 配置 =====================
-MARKET = "all"            # sh 沪市 / sz 深市 / all 全A
+# ===================== 配置 / Config =====================
+MARKET = "all"            # sh 沪市 / sz 深市 / all 全A / sh=Shanghai, sz=Shenzhen, all=A-share
 START = "2015-01-01"
 END = "2025-12-31"
-TOP_N = 10                # 每期持仓只数
-COMSN = 0.002             # 单边交易成本
-NUM_GROUP = 5             # 因子分组数
-ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限
-MAX_FACTORS = 20          # 入选因子数上限（对应优化器一的 K 约束）
-ADV_WINDOW = 60           # ADV 均值窗口（交易日）
-ADV_PCT = 0.2             # 剔除 ADV 位于截面最低 20% 的股票
-MIN_LISTED_DAYS = 120     # 上市满 N 个交易日，剔除次新股
+TOP_N = 10                # 每期持仓只数 / holdings per period
+COMSN = 0.002             # 单边交易成本 / one-way transaction cost
+NUM_GROUP = 5             # 因子分组数 / number of factor groups
+ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限 / min |ICIR| to be selected
+MAX_FACTORS = 20          # 入选因子数上限（对应优化器一的 K 约束） / max factors (optimizer 1 K)
+ADV_WINDOW = 60           # ADV 均值窗口（交易日） / ADV averaging window (trading days)
+ADV_PCT = 0.2             # 剔除 ADV 位于截面最低 20% 的股票 / drop lowest-20% ADV stocks
+MIN_LISTED_DAYS = 120     # 上市满 N 个交易日，剔除次新股 / require N listed days, drop recent IPOs
 
 DATA_DIR = HERE.parent / "data"
 OUTPUT_DIR = HERE.parent / "results" / "baseline"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ===================== 1. 数据载入 =====================
+# ===================== 1. 数据载入 / Data loading =====================
 def load_market_data(market, start, end):
-    """载入指定市场的日频宽表。market: 'sh' / 'sz' / 'all'。"""
+    """载入指定市场的日频宽表。market: 'sh' / 'sz' / 'all'。
+    Load the daily wide tables for the given market. market: 'sh' / 'sz' / 'all'.
+    """
     fields = ["close", "adj_factor", "open", "high", "low",
               "vol", "amount", "turnover_rate", "is_st"]
     daily = {}
@@ -100,12 +145,14 @@ def load_market_data(market, start, end):
     return daily
 
 
-# ===================== 2. 月末采样与股票池过滤 =====================
+# ===================== 2. 月末采样与股票池过滤 / Month-end sampling & universe =====================
 def build_monthly(daily):
-    """取每月最后一个交易日，构建月频面板。"""
+    """取每月最后一个交易日，构建月频面板。
+    Take the last trading day of each month to build the monthly panel.
+    """
     close = daily["close"]
     adj = daily["adj_factor"]
-    price = close * adj                      # 后复权收盘价
+    price = close * adj                      # 后复权收盘价 / back-adjusted close
 
     dates = pd.DatetimeIndex(
         pd.Series(price.index).groupby(price.index.to_period("M")).max())
@@ -122,11 +169,11 @@ def build_monthly(daily):
     monthly["returns"] = monthly["price"].pct_change(fill_method=None)
     monthly["dates"] = dates
 
-    # 60 日均成交额（元），用于容量筛选
+    # 60 日均成交额（元），用于容量筛选 / 60-day average amount (CNY) for capacity filter
     adv = daily["amount"].rolling(ADV_WINDOW, min_periods=20).mean()
     monthly["adv"] = adv.reindex(dates)
 
-    # 上市以来的交易日数，用于剔除次新股
+    # 上市以来的交易日数，用于剔除次新股 / trading days since listing, to drop recent IPOs
     basic = pd.read_csv(DATA_DIR / "sse_stock_basic.csv", dtype=str)
     ipo = pd.to_datetime(basic.set_index("code")["ipoDate"], errors="coerce")
     ipo.index = ipo.index.str[3:] + "." + ipo.index.str[:2].str.upper()
@@ -136,6 +183,7 @@ def build_monthly(daily):
     ipo_pos = price.index.searchsorted(ipo.to_numpy())
     listed = end_pos[:, None] - ipo_pos[None, :] + 1
     # 数据起点之前上市的股票，实际已上市多年，直接视为满足条件
+    # Stocks listed before the data start already qualify
     listed = np.where(ipo.to_numpy() < price.index[0], 10_000, listed)
     monthly["listed_days"] = pd.DataFrame(
         listed, index=dates, columns=price.columns)
@@ -143,7 +191,10 @@ def build_monthly(daily):
 
 
 def filter_pool(monthly, adv_pct=ADV_PCT, min_listed=MIN_LISTED_DAYS):
-    """可交易股票池：非 ST、有成交、上市满 min_listed 个交易日、ADV 不低于截面分位。"""
+    """可交易股票池：非 ST、有成交、上市满 min_listed 个交易日、ADV 不低于截面分位。
+    Tradable universe: non-ST, traded, listed for at least min_listed days,
+    ADV not below the cross-sectional quantile.
+    """
     is_st = monthly["is_st"].fillna(1)
     amount = monthly["amount"].fillna(0)
     vol = monthly["vol"].fillna(0)
@@ -155,13 +206,19 @@ def filter_pool(monthly, adv_pct=ADV_PCT, min_listed=MIN_LISTED_DAYS):
     return pool & adv.gt(threshold, axis=0)
 
 
-# ===================== 3. 因子计算 =====================
+# ===================== 3. 因子计算 / Factor computation =====================
 def compute_price_volume_factors(monthly, valid):
     """计算 38 个量价因子（动量 / 反转 / 量价 / 波动 / 流动性）。
 
     华泰金工系列（12 个）：return_Nm、wgt_return_Nm、exp_wgt_return_Nm、HAlpha
     Alpha101 精选（21 个）：Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
     量价扩展（5 个）：volatility_3m/6m、turnover_mean_3m、turnover_std_3m、amihud_3m
+
+    Compute 38 price-volume factors (momentum / reversal / price-volume /
+    volatility / liquidity).
+    Huatai quant series (12): return_Nm, wgt_return_Nm, exp_wgt_return_Nm, HAlpha
+    Selected Alpha101 (21): Alpha4/6/9/12/13/14/15/16/18/20/23/26/30/33/34/35/38/40/43/53/101
+    Price-volume extensions (5): volatility_3m/6m, turnover_mean_3m, turnover_std_3m, amihud_3m
     """
     price = monthly["price"]
     turn = monthly["turnover_rate"]
@@ -175,21 +232,25 @@ def compute_price_volume_factors(monthly, valid):
     factors = {}
     months = [1, 3, 6, 12]
 
-    # --- 简单收益动量 return_Nm ---
+    # --- 简单收益动量 return_Nm / simple return momentum ---
     for N in months:
         fac = price / price.shift(N) - 1
         factors[f"return_{N}m"] = fac.where(valid).replace([np.inf, -np.inf], np.nan)
 
-    # --- 换手率加权收益 wgt_return_Nm ---
+    # --- 换手率加权收益 wgt_return_Nm / turnover-weighted return ---
     # 研报按日频换手率加权；这里用近 N 个月平均换手率乘区间收益近似。
+    # The report weights by daily turnover; here the mean turnover over N months
+    # is multiplied by the period return as an approximation.
     for N in months:
         ret_N = price / price.shift(N) - 1
         turn_N = turn.rolling(N, min_periods=1).mean()
         factors[f"wgt_return_{N}m"] = (turn_N * ret_N).where(valid).replace(
             [np.inf, -np.inf], np.nan)
 
-    # --- 指数衰减换手率加权 exp_wgt_return_Nm ---
+    # --- 指数衰减换手率加权 exp_wgt_return_Nm / exponentially decayed turnover weight ---
     # N=1 时衰减权重退化为等权，与 wgt_return_1m 完全重复，故从 3 个月起算
+    # At N=1 the decayed weights reduce to equal weights, duplicating wgt_return_1m,
+    # so it starts from 3 months.
     for N in months[1:]:
         ret_N = price / price.shift(N) - 1
         decay = np.exp(-np.arange(N)[::-1] / (N / 4.0))
@@ -199,7 +260,7 @@ def compute_price_volume_factors(monthly, valid):
         factors[f"exp_wgt_return_{N}m"] = (turn_N * ret_N).where(valid).replace(
             [np.inf, -np.inf], np.nan)
 
-    # --- HAlpha：近 12 个月收益对基准回归的截距 ---
+    # --- HAlpha：近 12 个月收益对基准回归的截距 / intercept of 12M return on benchmark ---
     bench = load_benchmark(START, END)["close"].reindex(monthly["dates"])
     bench_ret = bench.pct_change(fill_method=None)
     halpha = pd.DataFrame(np.nan, index=price.index, columns=price.columns)
@@ -223,7 +284,7 @@ def compute_price_volume_factors(monthly, valid):
     factors["Alpha4"] = (-1 * rank_low.rolling(9, min_periods=1).rank(pct=True)
                          ).where(valid)
 
-    # --- Alpha9: 条件反转 ---
+    # --- Alpha9: 条件反转 / conditional reversal ---
     delta_close = close.diff(1)
     ts_min = delta_close.rolling(5, min_periods=1).min()
     ts_max = delta_close.rolling(5, min_periods=1).max()
@@ -233,7 +294,7 @@ def compute_price_volume_factors(monthly, valid):
     alpha9[(ts_min <= 0) & (ts_max >= 0)] = -delta_close[(ts_min <= 0) & (ts_max >= 0)]
     factors["Alpha9"] = alpha9.where(valid)
 
-    # --- Alpha20: 跳空回补 ---
+    # --- Alpha20: 跳空回补 / gap fill ---
     gap_h = open_ - high.shift(1)
     gap_c = open_ - close.shift(1)
     gap_l = open_ - low.shift(1)
@@ -241,7 +302,7 @@ def compute_price_volume_factors(monthly, valid):
                           * gap_c.rank(axis=1, pct=True)
                           * gap_l.rank(axis=1, pct=True)).where(valid)
 
-    # --- Alpha30: 方向符号 × 量能 ---
+    # --- Alpha30: 方向符号 × 量能 / direction sign x volume ---
     sign1 = np.sign(close.diff(1))
     sign2 = np.sign(close.diff(1).shift(1))
     sign3 = np.sign(close.diff(1).shift(2))
@@ -251,7 +312,7 @@ def compute_price_volume_factors(monthly, valid):
     factors["Alpha30"] = ((1 - (dir_sig * vol5).rank(axis=1, pct=True))
                           / vol20.replace(0, np.nan)).where(valid)
 
-    # --- Alpha35: 三周期共振 ---
+    # --- Alpha35: 三周期共振 / three-period resonance ---
     ts_rank_vol = vol.rolling(32, min_periods=1).rank(pct=True)
     bull = close + high - low
     ts_rank_bull = bull.rolling(16, min_periods=1).rank(pct=True)
@@ -264,7 +325,9 @@ def compute_price_volume_factors(monthly, valid):
     factors["Alpha101"] = ((close - open_) / (high - low + 0.001)).where(valid)
 
     # --- Alpha101 精选：仅依赖 OHLCV 与成交量的反转/量价类 ---
+    # --- Selected Alpha101: reversal/price-volume set depending only on OHLCV ---
     # 原公式窗口单位为交易日，月频面板下统一按“月”解释
+    # The original window is in trading days; on a monthly panel it is read as months.
     ret = close.pct_change(fill_method=None)
     c_rank = lambda x: x.rank(axis=1, pct=True)
     c_tsrank = lambda x, w: x.rolling(w, min_periods=1).rank(pct=True)
@@ -303,7 +366,7 @@ def compute_price_volume_factors(monthly, valid):
     inner53 = (close - low).replace(0, 0.0001)
     add_factor("Alpha53", -c_delta(((close - low) - (high - close)) / inner53, 9))
 
-    # --- 量价扩展：波动率、换手率稳定性、流动性 ---
+    # --- 量价扩展：波动率、换手率稳定性、流动性 / extensions: volatility, turnover stability, liquidity ---
     add_factor("volatility_3m", ret.rolling(3, min_periods=2).std())
     add_factor("volatility_6m", ret.rolling(6, min_periods=3).std())
     add_factor("turnover_mean_3m", turn.rolling(3, min_periods=1).mean())
@@ -314,9 +377,12 @@ def compute_price_volume_factors(monthly, valid):
     return factors
 
 
-# ===================== 4. 因子检验 =====================
+# ===================== 4. 因子检验 / Factor tests =====================
 def run_factor_test(factors, returns, dates):
-    """对每个已预处理因子做 IC、分组与多空检验，汇总到 factor_summary.csv。"""
+    """对每个已预处理因子做 IC、分组与多空检验，汇总到 factor_summary.csv。
+    Run IC, group and long-short tests for each preprocessed factor and save the
+    summary to factor_summary.csv.
+    """
     results = {}
     summary_rows = []
     for name, fac in factors.items():
@@ -348,9 +414,12 @@ def run_factor_test(factors, returns, dates):
     return results, summary
 
 
-# ===================== 5. 因子合成与回测 =====================
+# ===================== 5. 因子合成与回测 / Factor blending & backtest =====================
 def select_factors(summary, icir_threshold=ICIR_THRESHOLD, max_factors=MAX_FACTORS):
-    """按 |ICIR| 阈值选因子，再按 |ICIR| 降序截断到上限，至少保留 3 个。"""
+    """按 |ICIR| 阈值选因子，再按 |ICIR| 降序截断到上限，至少保留 3 个。
+    Select factors by the |ICIR| threshold, sort descending and truncate to the
+    cap, keeping at least 3.
+    """
     pivot = summary.pivot_table(index="因子", columns="指标", values="ICIR")
     if "RankIC" not in pivot.columns:
         return pivot.index.tolist()
@@ -365,7 +434,9 @@ def select_factors(summary, icir_threshold=ICIR_THRESHOLD, max_factors=MAX_FACTO
 
 
 def composite_factor(scores, selected, summary):
-    """等权合成已预处理的入选因子，IC 为负的因子取反。"""
+    """等权合成已预处理的入选因子，IC 为负的因子取反。
+    Equal-weight the preprocessed selected factors, flipping those with negative IC.
+    """
     pivot = summary.pivot_table(index="因子", columns="指标", values="平均IC")
     composite = pd.DataFrame(0.0, index=scores[selected[0]].index,
                              columns=scores[selected[0]].columns)
@@ -379,7 +450,10 @@ def composite_factor(scores, selected, summary):
 
 def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN,
                        output_dir=None, title=None):
-    """复合因子取每期前 top_n 只，等权持有，月末调仓。"""
+    """复合因子取每期前 top_n 只，等权持有，月末调仓。
+    Hold the top_n names of the composite factor each period, equal-weighted,
+    rebalancing at month-end.
+    """
     output_dir = Path(output_dir) if output_dir is not None else OUTPUT_DIR
     holdings = np.full((len(dates), top_n), np.nan)
     for i in range(len(dates)):
@@ -427,7 +501,7 @@ def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN,
     return outputs, perf
 
 
-# ===================== 主流程 =====================
+# ===================== 主流程 / Main flow =====================
 def main():
     print(f"市场：{MARKET} | 区间：{START} ~ {END} | 持仓数：{TOP_N}")
     print("=" * 60)
