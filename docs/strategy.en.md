@@ -211,7 +211,7 @@ In addition to IC/ICIR, the single-factor tests output the IC hit rate, quintile
 At each month-end, stocks are divided into quintiles according to their preprocessed factor scores, with $Q_1$ the lowest group and $Q_5$ the highest. Factor direction is determined by the sign of mean RankIC. The static experiment `optimizer_factor_selection.py` uses full-sample RankIC, whereas `rolling_top_weighted.py` uses only RankIC from the current year's training window:
 
 $$
-s_k = \operatorname{sign}\left(\overline{\mathrm{RankIC}}_k\right) \in \{-1,+1\}
+s_k = \mathrm{sign}\left(\overline{\mathrm{RankIC}}_k\right) \in \{-1,+1\}
 $$
 
 The direction-adjusted single-factor long-short return is:
@@ -237,7 +237,7 @@ $$
 The $t$-statistic of long-side excess returns is calculated as follows; both S7's gating and its weights are derived from it:
 
 $$
-t^L_k = \frac{\overline R^L_k}{\operatorname{std}(R^L_k)}\sqrt{T}
+t^L_k = \frac{\overline R^L_k}{\mathrm{std}(R^L_k)}\sqrt{T}
 $$
 
 The long-short diagnostics do not deduct actual securities-borrowing costs or consider the availability of shares to borrow; they are used only for factor research. The current backtest portfolio is always long-only and holds Top N stocks at equal weights.
@@ -282,10 +282,10 @@ The composite factor's IC in period $t$ is:
 
 $$
 \mathrm{IC}_{\mathrm{composite},t}
-= \operatorname{corr}\left(S_{i,t},r_{i,t+1}\right),
+= \mathrm{corr}\left(S_{i,t},r_{i,t+1}\right),
 \qquad
 S_{i,t}=\sum_{k\in\mathcal K}\omega_k
-\operatorname{sign}(\mathrm{IC}_k)z_{i,k,t}
+\mathrm{sign}(\mathrm{IC}_k)z_{i,k,t}
 $$
 
 The terms have the following meanings:
@@ -381,7 +381,7 @@ $$
 S_{i,t}
 =\sum_{k\in\mathcal K}\omega_k s_k z_{i,k,t},
 \qquad
-s_k=\operatorname{sign}\left(\overline{\mathrm{RankIC}}_k\right)
+s_k=\mathrm{sign}\left(\overline{\mathrm{RankIC}}_k\right)
 $$
 
 Factors with $s_k=-1$ are first reversed so that the composite direction is consistently “higher score, higher expected return.” $S_{i,t}$ is an individual stock ranking score, not an unbiased numerical forecast of return. All weights are determined solely by training-window statistics; no AR, VAR, EWMA, GARCH, LSTM, or other models are used to forecast factor returns.
@@ -656,7 +656,7 @@ Diagnostics show that all top-20 factors have positive annualized long-short ret
 $$
 \lvert\mathrm{ICIR}_k\rvert\geq0.2,
 \qquad
-\operatorname{Ann}\left(R^L_k\right)>0,
+\mathrm{Ann}\left(R^L_k\right)>0,
 \qquad
 t^L_k\geq1
 $$

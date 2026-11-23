@@ -211,7 +211,7 @@ $$
 每个月末按预处理后的因子分数把股票分成五组，$Q_1$ 为最低组、$Q_5$ 为最高组，因子方向由 RankIC 均值的符号确定。静态实验 `optimizer_factor_selection.py` 使用全样本 RankIC，滚动版 `rolling_top_weighted.py` 每年只使用当年训练窗口的 RankIC：
 
 $$
-s_k = \operatorname{sign}\left(\overline{\mathrm{RankIC}}_k\right) \in \{-1,+1\}
+s_k = \mathrm{sign}\left(\overline{\mathrm{RankIC}}_k\right) \in \{-1,+1\}
 $$
 
 方向校准后的单因子多空收益为：
@@ -237,7 +237,7 @@ $$
 多头超额收益的 $t$ 值按下式计算，S7 的门控与权重都来源于它：
 
 $$
-t^L_k = \frac{\overline R^L_k}{\operatorname{std}(R^L_k)}\sqrt{T}
+t^L_k = \frac{\overline R^L_k}{\mathrm{std}(R^L_k)}\sqrt{T}
 $$
 
 多空诊断不扣除实际融券成本，也不考虑融券可得性，只用于因子研究；当前回测组合始终是只做多、等权持有 Top N 股票。
@@ -282,10 +282,10 @@ $$
 
 $$
 \mathrm{IC}_{\mathrm{composite},t}
-= \operatorname{corr}\left(S_{i,t},r_{i,t+1}\right),
+= \mathrm{corr}\left(S_{i,t},r_{i,t+1}\right),
 \qquad
 S_{i,t}=\sum_{k\in\mathcal K}\omega_k
-\operatorname{sign}(\mathrm{IC}_k)z_{i,k,t}
+\mathrm{sign}(\mathrm{IC}_k)z_{i,k,t}
 $$
 
 各项含义：
@@ -381,7 +381,7 @@ $$
 S_{i,t}
 =\sum_{k\in\mathcal K}\omega_k s_k z_{i,k,t},
 \qquad
-s_k=\operatorname{sign}\left(\overline{\mathrm{RankIC}}_k\right)
+s_k=\mathrm{sign}\left(\overline{\mathrm{RankIC}}_k\right)
 $$
 
 $s_k=-1$ 的因子先取反，使合成方向统一为“分数越高，预期收益越高”。$S_{i,t}$ 是个股排序分数，不是对收益率数值的无偏预测。所有权重只由训练窗口统计量确定，不使用 AR、VAR、EWMA、GARCH、LSTM 等模型预测因子收益。
@@ -656,7 +656,7 @@ $$
 $$
 \lvert\mathrm{ICIR}_k\rvert\geq0.2,
 \qquad
-\operatorname{Ann}\left(R^L_k\right)>0,
+\mathrm{Ann}\left(R^L_k\right)>0,
 \qquad
 t^L_k\geq1
 $$
