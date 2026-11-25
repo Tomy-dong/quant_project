@@ -4,7 +4,7 @@
 
 The strategy uses price-volume factors as its alpha source. At the portfolio level it has two branches: active management, which keeps benchmark beta and targets excess return over the CSI 300; and market neutral, which hedges systematic beta with index futures and keeps only factor return. Both branches share the same factors and composite scores.
 
-This repository currently implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, rolling multi-factor model (annual factor re-selection + monthly rebalancing), and a partial Optimizer 1 (long-side gate + long-side t weighting, S7). Full optimizer search and the market-neutral branch are still under development.
+This repository implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, rolling multi-factor model (annual factor re-selection + monthly rebalancing), Optimizer 1's full heuristic screening with λ shrinkage, and Optimizer 2's eight capital-allocation methods. The market-neutral branch was evaluated but not adopted: hedging removes only about 16% of the variance, and a 4% annual basis consumes the remaining return.
 
 ## Contents
 
@@ -62,20 +62,50 @@ Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 p
 
 | Metric | Original Rolling (Top 10) | S7 Rolling (Top 100) | CSI 300 |
 | --- | ---: | ---: | ---: |
-| Cumulative return | -6.40% | +50.10% | 38.82% |
-| Annualized return | -1.11% | +7.08% | 5.68% |
-| Annualized volatility | 26.38% | 22.75% | 20.69% |
-| Sharpe ratio | -0.04 | 0.31 | 0.27 |
-| Maximum drawdown | -41.31% | -40.53% | -36.96% |
+| Cumulative return | -6.40% | +50.10% | 15.64% |
+| Annualized return | -1.11% | +7.08% | 2.45% |
+| Annualized volatility | 26.38% | 22.75% | 18.24% |
+| Sharpe ratio | -0.04 | 0.31 | 0.13 |
+| Maximum drawdown | -41.31% | -40.53% | -39.92% |
 | Annualized turnover | 10.68x | 9.07x | — |
 
 ![S7 rolling NAV](results/rolling_top/top100/nav.en.png)
 
-S7 beats the benchmark out of sample (+50.10% vs +38.82%, Sharpe 0.31 vs 0.27). The improvement decomposes into **diversification** (largest), **long-side t weighting**, and the **long-side gate**. Two honest caveats: the excess return is **concentrated in 2025** (the strategy lagged the benchmark through 2020-2024 and only overtook it in the 2025 rally), and the drawdown around the **February 2024 small-cap liquidity crisis** (-40.53%) is deeper than the benchmark's -36.96%. See `docs/strategy.md` section 11 for the full ablation and the config-by-holdings scan.
+S7 beats the benchmark out of sample (+50.10% vs +15.64%, Sharpe 0.31 vs 0.13). The improvement decomposes into **diversification** (largest), **long-side t weighting**, and the **long-side gate**. Two honest caveats: the excess return is **concentrated in 2025** (the strategy lagged the benchmark through 2020-2024 and only overtook it in the 2025 rally), and the drawdown around the **February 2024 small-cap liquidity crisis** (-40.53%) is deeper than the benchmark's -39.92%. For reference, the CSI 500 returned +38.82% over the same window (Sharpe 0.27). See `docs/strategy.md` section 11 for the full ablation and the config-by-holdings scan.
+
+### Fama-French Three-Factor (Out-of-Sample)
+
+Within the same tradable universe, independent 2x3 sorts on total market cap and B/M produce MKT, SMB, and HML. All three long-only strategies have insignificant FF3 alpha; returns are mainly market beta plus small-cap exposure. Top 100 portfolios have R² of 0.89–0.91, while GMVP Top 10 has R² of only 0.30, leaving about 70% as idiosyncratic risk.
+
+| Portfolio | Annualized alpha | alpha t | MKT | SMB | HML | R² |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Optimizer 2 GMVP Top 10 | -0.61% | -0.06 | 0.913 | 0.532 | 0.029 | 0.298 |
+| Optimizer 1 Top 100 | -3.00% | -0.85 | 1.202 | 0.553 | -0.074 | 0.886 |
+| S7 Top 100 | -1.80% | -0.60 | 1.091 | 0.571 | -0.059 | 0.906 |
+| CSI 300 | -3.74% | -2.43 | 1.103 | -0.279 | 0.042 | 0.960 |
+| CSI 500 | -1.21% | -0.54 | 1.112 | 0.136 | -0.115 | 0.918 |
+
+The full construction, Newey-West standard errors, and charts are in `docs/strategy.md` section 8 and [`results/ff3/`](results/ff3/).
 
 ### Attribution: Why the Baseline Turned Negative
 
 A 2x2 ablation (capacity filter on/off x unified/split factor pipeline) isolates the cause of the +91.13% to -28.62% flip. Toggling the **capacity filter** moves cumulative return by 91-145 percentage points; toggling the **pipeline** moves it by only 25-29 points. The capacity filter (ADV 20th percentile + 120 listed days) is the dominant cause: the earlier +91.13% came almost entirely from illiquid small caps and recent IPOs that cannot absorb real capital. Results are in [`results/ablation/comparison.csv`](results/ablation/comparison.csv).
+
+### 2026-11 Re-screening: WorldQuant-Only Pool + Top 30 (Current Main Configuration)
+
+To address the old main strategy's large drawdown and low annualized return, the factor pool was rebuilt as suggested by the supervisor: only the 21 WorldQuant Alpha101 factors; Huatai and extension factors leave the main pool. The overlap audit finds no formula-identical pair, but Huatai `return_Nm` vs `wgt_return_Nm` / `exp_wgt_return_Nm` correlates 0.87–0.98 and cross-pool `return_1m` vs `Alpha9` is -0.80, so adding Huatai back mainly double-counts the same effect. Factors are ranked by |ICIR| (monthly IC is only 0.02–0.08, so |IC|>0.5 is not executable; |ICIR|≥0.5 is used), with an ex-ante fallback to 0.3 for 4–5 factors; Optimizer 1 uses `K_MIN=3`, `K_MAX=5`; holdings rise to 30.
+
+| Configuration | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Old: 38-factor pool → Top 10 GMVP | +33.01% | 4.92% | 0.149 | -38.17% | 11.18 |
+| New: WQ 4–5 factors → Top 30 equal weight | +49.65% | 7.02% | 0.274 | -42.58% | 10.76 |
+| **New: WQ 4–5 factors → Top 30 IVar** | **+75.38%** | **9.92%** | **0.407** | **-37.25%** | **10.80** |
+
+Among the eight Top 30 weighting methods, IVar has both the highest Sharpe and the lowest drawdown; GMVP returns +73.68% / 0.394 / -40.38% and RB +70.24% / 0.383 / -38.76%, effectively the same level. The strict |ICIR|≥0.5 version keeps only 1–3 factors and returns +14.72%, Sharpe 0.102, drawdown -46.01%, worse than the old configuration, confirming that the fallback is a necessary ex-ante rule.
+
+Seven-sins audit (`results/audit/seven_sins_summary.md`): survivorship bias exists (delisted stocks cannot be restored); shifting the signal forward one period gives -99.39%, showing extreme timing sensitivity; 2022–2023 annual returns are -19.00% / -3.28% and are not hidden; 504 searches give a Bonferroni-corrected p=1.0, so the null cannot be rejected; annual turnover is about 10.8×, with annualized 9.82% at 0.2% and 12.19% at zero fees; the best five months contribute 101% of total return, and excluding them gives -12.86%; the long-only structure bears no borrow cost but gives up short-leg alpha. Drawdown improves only from -38.17% to -37.25% and is not fundamentally solved. See Section 13 of [`docs/strategy.md`](docs/strategy.md) for details.
+
+Drawdown is further tested with the Chapter 9 methods (`results/audit/drawdown/`): daily max drawdown -39.90% (monthly -37.25%), 704 days underwater; across 40 random backtests IVar's median max drawdown is -29.35% versus -32.19% for equal weight, a 90% paired win rate (+2.26 pp); in stress scenarios the 2022 drawdown is -31.62% (deeper than all-A equal weight at -28.75%), while the 2024Q1 micro-cap crisis is -24.32% (shallower than -30.01%). The strategy is not defensive, and its absolute drawdown is still not presentable to clients.
 
 ## Project Structure
 
@@ -217,10 +247,13 @@ The full design is available in [English](docs/strategy.en.md) and [Chinese](doc
 - [x] Long-short return diagnosis for the 38 factors
 - [x] Single-factor baseline backtest
 - [x] Rolling multi-factor model (annual factor re-selection, monthly rebalancing, ICIR fallback rule)
-- [x] Optimizer 1 (partial): long-side gate + long-side t weighting (S7), validated out of sample
+- [x] Optimizer 1: strict gates + heuristic factor search + λ weight shrinkage
 - [x] Return attribution (capacity x pipeline 2x2 ablation)
-- [ ] Optimizer 1: full heuristic factor search and weight shrinkage
-- [ ] Optimizer 2: comparison of eight capital allocation methods
-- [ ] Fama-French three-factor comparison
-- [ ] Market-neutral branch (index futures hedge, net-beta constraint, hedge cost)
+- [x] Optimizer 2: comparison of eight capital allocation methods
+- [x] Fama-French three-factor comparison (`results/ff3/`)
+- [x] Factor-pool re-screening (WorldQuant only + ICIR ranking + overlap audit)
+- [x] Optimizer 1 with 4–5 factors and Top 30 main configuration
+- [x] Seven-sins audit (`results/audit/`)
+- [x] Multi-method drawdown tests (metrics + 40 random backtests + stress scenarios, `results/audit/drawdown/`)
+- [x] Market-neutral feasibility test (hedge return/variance, basis sensitivity); not adopted as the main strategy
 - [ ] Xueqiu paper-trading tracking
