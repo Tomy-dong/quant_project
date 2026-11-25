@@ -132,7 +132,11 @@ Rolling vs fixed factor strategies (`results/rolling_vs_fixed/`), both Top 30 EW
 
 The fixed set wins on return, Sharpe and drawdown: yearly re-selection chases factors that decayed out of sample, while the 2015–2019 winners (turnover/reversal/correlation family) stayed effective.
 
+![Rolling vs fixed NAV](results/rolling_vs_fixed/nav_compare.png)
+
 Market-neutral comparison (`results/neutral_pool/`, 2021-01 to 2025-12): IF hedge at zero basis lifts Sharpe from 0.248 to 0.306 and cuts max drawdown from -38.33% to -22.59%, but at a realistic 4% annual basis the annualised return falls to 0.41%. IC hedging is worse (-17.58% max drawdown but only 1.71% annualised at zero basis). Neutral is therefore **not** adopted by default.
+
+![Neutral NAV](results/neutral_pool/nav_neutral.png)
 
 Honest note: none of these configurations reaches the 15% annualised target; the best pool-based result is 10.12% (12.34% with long-t weights), only marginally above the previous 9.92%. The factor library mainly improves breadth and drawdown control rather than raw return.
 
