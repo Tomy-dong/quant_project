@@ -107,6 +107,47 @@ Seven-sins audit (`results/audit/seven_sins_summary.md`): survivorship bias exis
 
 Drawdown is further tested with the Chapter 9 methods (`results/audit/drawdown/`): daily max drawdown -39.90% (monthly -37.25%), 704 days underwater; across 40 random backtests IVar's median max drawdown is -29.35% versus -32.19% for equal weight, a 90% paired win rate (+2.26 pp); in stress scenarios the 2022 drawdown is -31.62% (deeper than all-A equal weight at -28.75%), while the 2024Q1 micro-cap crisis is -24.32% (shallower than -30.01%). The strategy is not defensive, and its absolute drawdown is still not presentable to clients.
 
+### 2026-11 Factor Library Expansion: Alpha191 / Alpha158 / Alpha101 / Tsinghua 22
+
+The factor pool is rebuilt from four libraries, all implemented as vectorised month-end panels (`baseline/factor_lib/`): Alpha191 (189 usable formulas; `alpha030`/`alpha149` need external data), QLib Alpha158 (158), WorldQuant Alpha101 (101) and 22 price-volume factors from the Minsheng white paper. Total **470 factors**.
+
+Single-factor screen: monthly RankIC over 2015–2025, cross-sectionally winsorised / industry-neutralised / z-scored, with **|IC| ≥ 0.05 and |ICIR| ≥ 0.5**. **40 factors pass** (Alpha191 14, Alpha158 17, Alpha101 2, Tsinghua 7); three pairs are formula duplicates (`alpha_042`=`a101_040`, `a158_roc20`=`alpha_088`, `a158_ma30`=`-a158_resi30`). Each survivor is backtested Top 30 equal weight: 17 of 40 are positive, the best is `alpha_097` at 8.8% annualised / Sharpe 0.335 / max drawdown -54.3%.
+
+Optimizer 1 on the 40-factor pool (`K=3..5`, `|ICIR|≥0.5`, λ=0.3) and Optimizer 2 with eight weighting schemes:
+
+| Configuration | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Optimizer 1, Top 30 EW | +41.03% | 5.96% | 0.272 | -51.58% | 11.05 |
+| Optimizer 1, Top 50 EW | +69.65% | 9.31% | 0.422 | -43.86% | 10.95 |
+| Optimizer 1, Top 50 long-t weights | +99.58% | 12.34% | 0.566 | -42.37% | — |
+| **Optimizer 2, Top 50 IVar** | **+77.27%** | **10.12%** | **0.500** | **-38.33%** | **10.87** |
+| Optimizer 2, Top 50 GMVP (24m cov) | +87.12% | 11.01% | 0.575 | -37.24% | — |
+
+Rolling vs fixed factor strategies (`results/rolling_vs_fixed/`), both Top 30 EW, same universe and fee, 2020–2025 out-of-sample:
+
+| Strategy | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Rolling (retrain every year) | +23.03% | 3.55% | 0.182 | -35.59% | 11.02 |
+| **Fixed (select 2015–2019, freeze)** | **+50.96%** | **7.18%** | **0.344** | **-28.85%** | **11.16** |
+
+The fixed set wins on return, Sharpe and drawdown: yearly re-selection chases factors that decayed out of sample, while the 2015–2019 winners (turnover/reversal/correlation family) stayed effective.
+
+Market-neutral comparison (`results/neutral_pool/`, 2021-01 to 2025-12): IF hedge at zero basis lifts Sharpe from 0.248 to 0.306 and cuts max drawdown from -38.33% to -22.59%, but at a realistic 4% annual basis the annualised return falls to 0.41%. IC hedging is worse (-17.58% max drawdown but only 1.71% annualised at zero basis). Neutral is therefore **not** adopted by default.
+
+Honest note: none of these configurations reaches the 15% annualised target; the best pool-based result is 10.12% (12.34% with long-t weights), only marginally above the previous 9.92%. The factor library mainly improves breadth and drawdown control rather than raw return.
+
+```bash
+python baseline/factor_screen.py --backtest          # compute, screen and single-factor backtests
+set FACTOR_SOURCE=factor_pool
+set OPT1_OUTPUT=optimizer1_pool& set OPT1_ICIR_MIN=0.5& set OPT1_K_MIN=3& set OPT1_K_MAX=5& set OPT1_TOP_N=10,30,50
+python baseline/optimizer1_heuristic.py
+set OPT2_OUTPUT=optimizer2_pool& set OPT2_COMPOSITE=optimizer1_pool/composite_factor.csv& set OPT2_TOP_N=10,30,50
+python baseline/optimizer2_weights.py
+set RM_OUTPUT=rolling_pool& set RM_TOP_N=30& python baseline/rolling_multifactor.py
+set FIXED_OUTPUT=fixed_pool& python baseline/fixed_factor.py
+python baseline/compare_rolling_fixed.py
+```
+
 ## Project Structure
 
 ```

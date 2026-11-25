@@ -15,6 +15,7 @@ short leg that neutralises the market beta.
     results/market_neutral/nav_neutral.png
     results/market_neutral/rolling_beta.png
 """
+import os
 import sys
 from pathlib import Path
 
@@ -33,9 +34,11 @@ from utils.utils import calc_nav
 plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "DejaVu Sans"]
 plt.rcParams["axes.unicode_minus"] = False
 
-OUT_DIR = ROOT / "results" / "market_neutral"
-HOLDINGS = ROOT / "results" / "optimizer2" / "top10" / "GMVP" / "holdings.csv"
-RET_PATH = ROOT / "results" / "optimizer2" / "monthly_returns.csv.gz"
+OUT_DIR = ROOT / "results" / os.environ.get("NEUTRAL_OUTPUT", "market_neutral")
+HOLDINGS = ROOT / "results" / os.environ.get(
+    "NEUTRAL_HOLDINGS", "optimizer2/top10/GMVP/holdings.csv")
+RET_PATH = ROOT / "results" / os.environ.get(
+    "NEUTRAL_RETURNS", "optimizer2/monthly_returns.csv.gz")
 
 COMSN = 0.002          # 单边费率，与优化器二保持一致
 WINDOW = 24            # β 估计窗口（月）

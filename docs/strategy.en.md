@@ -1205,3 +1205,52 @@ Chapter 9 concludes that k-fold is unsuitable as a primary method for financial 
 - Daily max drawdown of -39.90% and 704 days underwater are still not presentable to clients;
 - Random backtests show that IVar's drawdown improvement over equal weight is stable (90% win rate, +2.26 pp), but the median absolute drawdown is still about -29%;
 - Further reweighting cannot bring drawdown to an acceptable range; only index-futures hedging or market timing can. The volatility-target overlay from Chapter 7 was tested and lowers both return and Sharpe, so it is not adopted.
+
+## 14. 2026-11 Factor-Library Expansion, Rolling vs Fixed Factors, and the Neutral Re-check
+
+### 14.1 Factor library and screening
+
+Four libraries are implemented as vectorised date-by-symbol modules (`baseline/factor_lib/`), sampled at month ends:
+
+| Family | Factors | Notes |
+| --- | ---: | --- |
+| Alpha191 | 189 | Reuses `因子库/alpha191_formulas.py` with the missing operator module supplied; `alpha030` and `alpha149` need external data |
+| QLib Alpha158 | 158 | 9 K-bar shapes + 4 price positions + 29 rolling operators x windows 5/10/20/30/60 |
+| WorldQuant Alpha101 | 101 | Ported from the paper, `IndNeutralize` uses the industry snapshot |
+| Tsinghua white paper | 22 | size/beta/downside beta/idvol/skew/coskew/turn/volumed/illq/LM/momentum, some approximated from daily data |
+
+Implementation notes: Chinese-style `Sma(X,N,M)` is `ewm(alpha=M/N, adjust=False)`; `Regbeta(y, Sequence(n))` becomes a fixed-weight linear filter; `Lowday/Highday/Tsargmax` use block-wise sliding windows; `volume = vol / adj_factor` keeps the same scale as back-adjusted prices; all divisions go through `safe_div`, and suspended days stay NaN.
+
+Screen: monthly RankIC over 2015-2025 after MAD winsorisation, industry demeaning and z-scoring, with **|IC| >= 0.05 and |ICIR| >= 0.5**. **40 of 470 factors pass** (Alpha191 14, Alpha158 17, Alpha101 2, Tsinghua 7); three pairs are exact duplicates. Each survivor is backtested Top 30 equal weight: 17 are positive, and the best (`alpha_097`) gives 8.8% annualised, Sharpe 0.335, max drawdown -54.3%.
+
+### 14.2 Optimizers on the new pool
+
+Optimizer 1 (`K_MIN=3, K_MAX=5, K_TARGET=4, |ICIR|>=0.5`) gives, out of sample, Top 50 EW +69.65% cumulative / 9.31% annualised / Sharpe 0.422 / max drawdown -43.86%; long-side t weights on the same subset give +99.58% / 12.34% / 0.566. Optimizer 2 over eight weighting schemes: Top 50 IVar is best at +77.27% / 10.12% / 0.500 / -38.33%, marginally better than the previous main configuration (+75.38% / 9.92% / 0.407 / -37.25%). A 24-month covariance GMVP Top 50 reaches +87.12% / Sharpe 0.575 / -37.24% but is window-sensitive and not the default.
+
+### 14.3 Rolling vs fixed factors
+
+The only difference is whether factors are retrained: rolling re-selects factors and weights every year on the past five years; fixed selects once on 2015-2019 and freezes until 2025. Universe, preprocessing, ICIR weighting, Top 30 EW and the 0.002 one-way cost are identical.
+
+| Strategy | Cumulative | Annualized | Volatility | Sharpe | Max drawdown | Turnover |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Rolling | +23.03% | 3.55% | 19.57% | 0.182 | -35.59% | 11.02 |
+| Fixed | +50.96% | 7.18% | 20.87% | 0.344 | -28.85% | 11.16 |
+
+Fixed wins on all three. Rolling tends to chase factors that decayed out of sample; the 2015-2019 winners (turnover, reversal, price-volume correlation) remained effective, and freezing them avoided that chase. **The fixed set is adopted.**
+
+### 14.4 Neutral vs long-only
+
+Using the Optimizer-2 Top 50 IVar holdings as the long leg, hedged with CSI 300 (IF) and CSI 500 (IC) futures (24-month rolling beta, monthly rebalance, 60 months from 2021-01):
+
+| Portfolio | Cumulative | Annualized | Volatility | Sharpe | Max drawdown |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Long only | +28.55% | 5.15% | 20.78% | 0.248 | -38.33% |
+| IF hedge, 0 basis | +24.64% | 4.50% | 14.72% | 0.306 | -22.59% |
+| IF hedge, 4% basis | +2.07% | 0.41% | 14.72% | 0.028 | -27.42% |
+| IC hedge, 0 basis | +8.86% | 1.71% | 10.83% | 0.158 | -17.58% |
+
+At zero basis IF hedging cuts drawdown to -22.59% and lifts Sharpe to 0.306, but at a realistic 4% annual basis the return falls to 0.41%; IC hedging is worse. **Neutral is not adopted by default**, and is kept only as an optional IF-hedged variant for drawdown control.
+
+### 14.5 Gap to the target
+
+The target is 15%+ annualised, drawdown below 40%, and the best possible Sharpe. The best pool-based configuration delivers 10.12% (12.34% with long-side t weights), -38.33% drawdown and Sharpe 0.500; the fixed-factor strategy delivers 7.18% with only -28.85% drawdown. The expansion improved breadth and drawdown control but not the return level. Going further would require weekly rebalancing, event/fundamental factors, or portfolio-level timing rather than more monthly price-volume factors.

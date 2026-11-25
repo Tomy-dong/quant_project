@@ -37,6 +37,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+import os
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -52,7 +53,7 @@ from price_volume_baseline import (MARKET, START, END, COMSN,
                                    load_market_data)
 from utils.data_standardize import preprocess
 
-OUTPUT_DIR = HERE.parent / "results" / "rolling"
+OUTPUT_DIR = HERE.parent / "results" / os.environ.get("RM_OUTPUT", "rolling")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ===================== 配置 / Config =====================
@@ -62,6 +63,8 @@ OOS_END_YEAR = 2025       # 样本外结束年份 / last out-of-sample year
 ICIR_THRESHOLD = 0.2      # 入选因子的 |ICIR| 下限 / min |ICIR| to be selected
 MAX_FACTORS = 20          # 入选因子数上限 / max number of factors
 MIN_FACTORS = 3           # 入选因子数下限 / min number of factors
+TOP_N = int(os.environ.get("RM_TOP_N", "10"))  # 持仓数 / holdings per period
+FACTOR_SOURCE = os.environ.get("FACTOR_SOURCE", "legacy").lower()
 
 
 # ===================== 1. 训练窗口内的 RankIC / RankIC within the training window =====================
@@ -196,7 +199,8 @@ def run_rolling(factors, returns, dates):
     print(f"\n样本外区间：{comp_oos.index[0].date()} ~ {comp_oos.index[-1].date()}"
           f"，共 {len(comp_oos)} 期")
     outputs, perf = backtest_portfolio(
-        comp_oos, ret_oos, comp_oos.index, comsn=COMSN, output_dir=OUTPUT_DIR,
+        comp_oos, ret_oos, comp_oos.index, top_n=TOP_N, comsn=COMSN,
+        output_dir=OUTPUT_DIR,
         title=f"滚动多因子：年频换因子 / 月频换股 ({MARKET.upper()})")
     return outputs, perf, log
 
@@ -208,17 +212,19 @@ def main():
     print("=" * 60)
 
     print("\n[1/4] 载入日频数据...")
-    daily = load_market_data(MARKET, START, END)
-
-    print("[2/4] 月末采样与股票池...")
-    monthly = build_monthly(daily)
-    dates = monthly["dates"]
-    valid = filter_pool(monthly)
-    print(f"  月末样本 {len(dates)} 期，{monthly['price'].shape[1]} 只股票")
-
-    print("[3/4] 计算量价因子...")
-    factors = compute_price_volume_factors(monthly, valid)
-    print(f"  共 {len(factors)} 个因子")
+    if FACTOR_SOURCE == "factor_pool":
+        import factor_pool_source as fps
+        monthly, factors, dates = fps.load_pool(mask_valid=True)
+    else:
+        daily = load_market_data(MARKET, START, END)
+        print("[2/4] 月末采样与股票池...")
+        monthly = build_monthly(daily)
+        dates = monthly["dates"]
+        valid = filter_pool(monthly)
+        print(f"  月末样本 {len(dates)} 期，{monthly['price'].shape[1]} 只股票")
+        print("[3/4] 计算量价因子...")
+        factors = compute_price_volume_factors(monthly, valid)
+    print(f"  因子来源：{FACTOR_SOURCE}，共 {len(factors)} 个因子")
 
     print("[4/4] 滚动重训与回测...")
     run_rolling(factors, monthly["returns"], dates)

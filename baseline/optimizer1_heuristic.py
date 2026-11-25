@@ -122,6 +122,9 @@ WQ_FACTORS = {
     "Alpha53", "Alpha101",
 }
 FACTOR_POOL = os.environ.get("OPT1_POOL", "all").lower()
+# 因子来源：legacy = 旧的 38 个量价因子；factor_pool = 初筛通过的大因子库
+# Factor source: legacy 38 price-volume factors, or the screened factor pool.
+FACTOR_SOURCE = os.environ.get("FACTOR_SOURCE", "legacy").lower()
 
 
 def select_pool(names):
@@ -625,17 +628,26 @@ def main():
     print("=" * 72)
 
     print("\n[1/6] 载入数据、计算因子与预处理（约数分钟）...")
-    daily = pv.load_market_data(pv.MARKET, pv.START, pv.END)
-    monthly = pv.build_monthly(daily)
-    dates = monthly["dates"]
-    returns = monthly["returns"]
-    valid = pv.filter_pool(monthly)
+    if FACTOR_SOURCE == "factor_pool":
+        import factor_pool_source as fps
+        monthly, factors, dates = fps.load_pool(mask_valid=True)
+        returns = monthly["returns"]
+        valid = monthly["valid"]
+    else:
+        daily = pv.load_market_data(pv.MARKET, pv.START, pv.END)
+        monthly = pv.build_monthly(daily)
+        dates = monthly["dates"]
+        returns = monthly["returns"]
+        valid = pv.filter_pool(monthly)
+        factors = pv.compute_price_volume_factors(monthly, valid)
     print(f"  可交易股票池均值：{valid.sum(axis=1).mean():.0f} 只")
-    factors = pv.compute_price_volume_factors(monthly, valid)
     zfactors = {name: preprocess(fac) for name, fac in factors.items()}
-    names = select_pool(list(zfactors))
-    zfactors = {n: zfactors[n] for n in names}
-    print(f"  因子池：{FACTOR_POOL}，{len(names)} 个因子，"
+    if FACTOR_SOURCE == "factor_pool":
+        names = list(zfactors)
+    else:
+        names = select_pool(list(zfactors))
+        zfactors = {n: zfactors[n] for n in names}
+    print(f"  因子池：{FACTOR_SOURCE}/{FACTOR_POOL}，{len(names)} 个因子，"
           f"ICIR 下限 {ICIR_MIN:g}，K 目标 {K_TARGET}")
 
     print("[2/6] 预计算 IC、多空/多头超额、规模暴露与相关矩阵...")

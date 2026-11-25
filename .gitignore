@@ -5,6 +5,9 @@ data/*
 # 大体积中间结果
 results/**/composite_factor.csv
 
+# 因子池月末面板（体积大，可由 baseline/factor_screen.py 重算）
+results/factor_pool/
+
 # 数据压缩包只提交分卷
 data_archive/data.zip
 

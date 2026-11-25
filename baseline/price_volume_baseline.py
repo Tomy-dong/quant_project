@@ -482,6 +482,7 @@ def backtest_portfolio(composite, returns, dates, top_n=TOP_N, comsn=COMSN,
         "年化换手": outputs["turnover"].mean() * 12,
     })
     perf.to_csv(output_dir / "performance.csv", encoding="utf-8-sig")
+    nav.to_csv(output_dir / "nav.csv", encoding="utf-8-sig")
 
     fig, ax = plt.subplots(figsize=(10, 5))
     nav.plot(ax=ax, label="策略净值", linewidth=1.5)
