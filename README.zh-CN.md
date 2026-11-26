@@ -34,9 +34,9 @@
 | 沪深300 | +15.64% | 2.49% | 18.37% | 0.135 | -39.92% | — | — |
 | 中证500 | +38.82% | 5.70% | 20.69% | 0.275 | -36.96% | — | — |
 
-![主策略固定K4与双基准的净值和回撤](results/main_strategy/nav_drawdown_main.png)
+![主策略Top100与XGBoost附录Top30的净值和回撤合并图](results/main_strategy/main_vs_xgb_top30.png)
 
-> 上图直接对应图一结果表，仅展示**固定 K=4 + ICIR + IVar Top100 主策略**与沪深300、中证500。固定/滚动方案对照见 `nav_compare.png` 和 `drawdown.png`；第 15 节所有 Top30 净值回撤图均为 XGBoost 附录，不是主策略。
+> **读图口径：**左栏为主结果表中的**固定 K=4 + ICIR + IVar Top100 主策略**及沪深300、中证500；右栏为 **40 因子 XGBoost + Top30** 的四种股票层权重附录。两栏统一使用 2020–2025 样本外区间和单边千分之二费率，但因子合成方式与持股数量不同，不构成同一模型的单变量消融。固定/滚动方案对照另见 `nav_compare.png` 和 `drawdown.png`。
 
 固定因子在年化、夏普和回撤上均优于年度滚动重选，说明频繁追逐近期有效因子容易拟合已经衰减的信号。主策略跑赢两条基准且回撤更小，但**尚未达到年化 15% 的目标**。
 
@@ -127,7 +127,7 @@ XGBoost 使用初筛的 40 个因子捕捉非线性交互，因违反最终“�
 
 **图中为什么是“线性 N=5 / N=10”而不是 4？** 这是最终确定主策略之前的 Top30 历史对照图，5 和 10 是当时两条线性基线的因子个数，不是当前主策略参数。当前主策略始终为 K=4、Top100；正文统一以 **K 表示因子数、N 表示持股数**。若要在该图加入 K=4，必须按相同 Top30 口径重新回测，不能直接把 5 因子曲线改名为 4。
 
-![XGBoost Top30 的股票层风险权重对比](results/xgb_riskweight/riskweight_compare.png)
+XGBoost Top30 四种股票层权重的净值与回撤已并入[上方主策略—附录合并图](results/main_strategy/main_vs_xgb_top30.png)右栏，此处不再重复贴图；单独附录图仍保存在 `results/xgb_riskweight/riskweight_compare.png`。
 
 ### 历史实验索引
 
@@ -143,6 +143,9 @@ python baseline/capacity_analysis.py
 # 附录：40 因子 XGBoost，不属于主策略
 python baseline/xgb_strategy.py
 python baseline/xgb_riskweight.py
+
+# 根据已保存的月度收益生成主策略—附录合并图，不重复回测
+python baseline/plot_main_xgb_compare.py
 ```
 
 ## 项目结构
@@ -155,6 +158,7 @@ python baseline/xgb_riskweight.py
 │   ├── capacity_analysis.py      费率、冲击成本与容量分析
 │   ├── xgb_strategy.py           40 因子 XGBoost 附录
 │   ├── xgb_riskweight.py         XGBoost 股票层风险权重
+│   ├── plot_main_xgb_compare.py  主策略与 XGBoost 附录合并图
 │   ├── factor_lib/               470 个候选因子的向量化实现
 │   └── ...                       基线、滚动与历史对照脚本
 ├── data/                         行情数据（不纳入版本管理）

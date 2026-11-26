@@ -8,7 +8,8 @@
     k_curve.csv / k_curve.png        因子数扩展曲线
     topn_curve.csv / topn_curve.png  持仓数曲线（K=4，IVar）
     final_compare.csv                固定因子/滚动因子/沪深300/中证500 + FF3 alpha
-    nav_drawdown_main.png          主策略与双基准的独立净值—回撤双面板图
+    monthly_pnl.csv                  主策略、滚动对照与双基准的月度收益
+    nav_drawdown_main.png            主策略与双基准的独立净值—回撤双面板图
     nav_compare.png / drawdown.png / ff3_alpha.png
     holdings_main.xlsx               主策略逐月持仓
     factor_ic_grid.png / factor_ic_yearly_heatmap.png / ic_panels_top3.png
@@ -215,6 +216,8 @@ def main():
         rows.append(row)
     fcmp = pd.DataFrame(rows)
     fcmp.to_csv(OUT / "final_compare.csv", index=False, encoding="utf-8-sig")
+    pd.DataFrame(final).to_csv(OUT / "monthly_pnl.csv", encoding="utf-8-sig",
+                               index_label="日期")
     print(fcmp.to_string(index=False))
 
     # 持仓导出

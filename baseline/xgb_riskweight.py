@@ -82,6 +82,10 @@ def main():
               f"回撤 {mtr['最大回撤']*100:6.2f}% | alpha {reg['alpha年化']*100:+.2f}%"
               f"(p={reg['alpha_p']:.3f}) R2={reg['R2']:.3f}")
 
+    # 保存月度收益，供主策略与附录合并图直接复用，避免重复回测。
+    pd.DataFrame({m: d["pnl"] for m, d in rows.items()}).to_csv(
+        OUT / "pnl.csv", encoding="utf-8-sig", index_label="日期")
+
     # 汇总
     summ = pd.DataFrame([{
         "方法": m, **d["metrics"],
