@@ -34,7 +34,7 @@ Common backtest conventions: factors are selected on 2015–2019 and then frozen
 | CSI 300 | +15.64% | 2.49% | 18.37% | 0.135 | -39.92% | — | — |
 | CSI 500 | +38.82% | 5.70% | 20.69% | 0.275 | -36.96% | — | — |
 
-![Combined NAV and drawdown panels for the Top-100 main strategy and Top-30 XGBoost appendix](results/main_strategy/main_vs_xgb_top30.png)
+![Combined NAV and drawdown panels for the Top-100 main strategy and Top-30 XGBoost appendix](results/main_strategy/main_vs_xgb_top30_en.png)
 
 > **How to read the panels:** the left column shows the **fixed K=4 + ICIR + IVar Top 100 main strategy**, CSI 300 and CSI 500 from the result table; the right column shows the **40-factor XGBoost + Top 30 appendix** under four stock-weighting methods. Both use the 2020–2025 out-of-sample window and a 0.002 one-way fee, but factor composition and holdings counts differ, so this is not a single-variable ablation of one model. See `nav_compare.png` and `drawdown.png` for the separate fixed/rolling control.
 
@@ -127,7 +127,7 @@ These configurations differ in holdings and factor constraints and are not fully
 
 **Why does the figure say “Linear N=5 / N=10” instead of 4?** It is a historical Top 30 comparison created before the final main strategy was selected. Five and ten are the factor counts of two earlier linear controls, not current main-strategy parameters. The current main strategy remains K=4 and Top 100. Throughout the text, **K denotes factor count and N denotes holdings count**. Adding K=4 to this figure requires a new matched Top 30 backtest; the five-factor curve cannot simply be relabelled as four.
 
-NAV and drawdown for the four XGBoost Top 30 stock weightings are now included in the right column of the [combined main-strategy/appendix figure](results/main_strategy/main_vs_xgb_top30.png) above and are not repeated here. The standalone appendix chart remains at `results/xgb_riskweight/riskweight_compare.png`.
+NAV and drawdown for the four XGBoost Top 30 stock weightings are now included in the right column of the [combined main-strategy/appendix figure](results/main_strategy/main_vs_xgb_top30_en.png) above and are not repeated here. The standalone appendix chart remains at `results/xgb_riskweight/riskweight_compare.png`.
 
 ### Historical Experiment Index
 
