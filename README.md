@@ -20,178 +20,158 @@ This repository implements the data pipeline, factor tests, single-factor baseli
 
 ## Results Summary
 
-Backtest period 2015-01-01 to 2025-12-31, monthly rebalancing, one-way cost 0.002, benchmark is the CSI 300 price index.
+> **Current main strategy: fixed K=4 + ICIR factor weights + IVar stock weights + Top 100.** This section presents only the final configuration and its direct controls. Earlier 38-factor, Top 10, S7, WorldQuant-only Top 30 and similar results are historical experiments, not current performance.
 
-### Single-Factor IC
+Common backtest conventions: factors are selected on 2015–2019 and then frozen; the out-of-sample window is 2020-01-23 to 2025-12-31 (72 periods). Rebalancing is monthly, transaction cost is 0.002 one-way, positions are long-only, and every strategy uses the same tradable universe. CSI 300 and CSI 500 are both comparison benchmarks. See [`results/main_strategy/final_compare.csv`](results/main_strategy/final_compare.csv) for full metrics and [`results/main_strategy/holdings_main.xlsx`](results/main_strategy/holdings_main.xlsx) for monthly holdings.
 
-RankIC and ICIR of the 38 price-volume factors. The table shows the top 10 by |ICIR|; full results are in [`results/baseline/factor_summary.csv`](results/baseline/factor_summary.csv).
+### Main Strategy Performance (Out-of-Sample, 2020–2025)
 
-| Factor | Description | RankIC | ICIR | Share of IC > 0 |
+| Portfolio | Cumulative | Annualized | Annualized vol | Sharpe | Max drawdown | Excess vs CSI 300 | Excess vs CSI 500 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Fixed K=4 + IVar Top 100 (main)** | **+89.46%** | **11.24%** | 20.71% | **0.543** | **-26.43%** | **+8.75pp** | **+5.54pp** |
+| Rolling K=4 + IVar Top 100 | +63.13% | 8.50% | 20.21% | 0.420 | -33.48% | +6.01pp | +2.80pp |
+| CSI 300 | +15.64% | 2.49% | 18.37% | 0.135 | -39.92% | — | — |
+| CSI 500 | +38.82% | 5.70% | 20.69% | 0.275 | -36.96% | — | — |
+
+![Main strategy and benchmark NAV](results/main_strategy/nav_compare.png)
+
+![Main strategy and benchmark drawdown](results/main_strategy/drawdown.png)
+
+The fixed factor set beats annual rolling reselection on return, Sharpe and drawdown, suggesting that frequent reselection tends to chase decayed signals. The main strategy beats both benchmarks with a smaller drawdown, but **does not reach the 15% annualized-return target**.
+
+### The Four Selected Factors
+
+The candidate pool contains 470 factors from Alpha191, Alpha158, Alpha101 and the Tsinghua price-volume library. The full-sample screen requires |mean IC|≥0.05 and |ICIR|≥0.5, leaving 40 factors. Optimizer 1 then uses training-window gates, collinearity constraints and the K sensitivity test to select four. The table reports raw out-of-sample RankIC; negative-IC factors are sign-reversed during composition, so a negative value does not make them unusable.
+
+| Factor | Type | Mean RankIC | ICIR | Composition sign |
 | --- | --- | ---: | ---: | ---: |
-| `turnover_std_3m` | 3-month turnover volatility | -0.0703 | -0.720 | 20.6% |
-| `turnover_mean_3m` | 3-month average turnover | -0.0798 | -0.657 | 23.7% |
-| `volatility_3m` | 3-month return volatility | -0.0503 | -0.600 | 26.7% |
-| `return_1m` | 1-month momentum | -0.0644 | -0.589 | 26.7% |
-| `Alpha20` | Rank of open relative to previous close | 0.0547 | 0.565 | 65.6% |
-| `wgt_return_1m` | Turnover-weighted 1-month return | -0.0591 | -0.559 | 26.7% |
-| `Alpha12` | Volume change × reversed price change | 0.0308 | 0.536 | 69.5% |
-| `Alpha9` | One-period difference correlation of price and volume | 0.0476 | 0.531 | 71.0% |
-| `volatility_6m` | 6-month return volatility | -0.0535 | -0.494 | 30.5% |
-| `Alpha13` | Negated rank covariance of close and volume | 0.0361 | 0.486 | 68.7% |
+| `a101_040` | Alpha101 price-volume signal | +0.066 | +0.95 | +1 |
+| `a101_088` | Alpha101 price-volume signal | +0.057 | +0.78 | +1 |
+| `alpha_097` | Alpha191 price-volume signal | -0.049 | -0.85 | -1 |
+| `a158_cord20` | 20-day price-volume correlation | -0.042 | -0.58 | -1 |
 
-Turnover, volatility, and reversal factors have negative IC: low-turnover, low-volatility, recently fallen stocks do better. Alpha reversal factors are positive. Absolute IC is only 0.03–0.08, but ICIR reaches 0.49–0.72, so the direction is stable and the signal-to-noise ratio is acceptable.
+![Monthly RankIC of the four selected factors](results/main_strategy/factor_ic_grid.png)
 
-### Baseline Portfolio
+![Annual mean RankIC of the selected factors](results/main_strategy/factor_ic_yearly_heatmap.png)
 
-All 38 factors are tested individually; those with |ICIR| ≥ 0.2 are kept (capped at 20), sign-adjusted, and equal-weighted into a composite. Each month the top 10 stocks are held with equal weights:
+### Sensitivity to Factor Count K and Holdings TopN
 
-| Metric | Price-Volume Baseline (Top 10) | CSI 300 |
-| --- | ---: | ---: |
-| Cumulative return | -28.62% | 32.54% |
-| Annualized return | -3.04% | 2.61% |
-| Annualized volatility | 33.91% | 24.68% |
-| Sharpe ratio | -0.09 | 0.11 |
-| Maximum drawdown | -70.58% | -58.18% |
-| Annualized turnover | 10.43x | — |
+With fixed factors, ICIR weights and IVar Top 100, K=4 delivers the highest return and Sharpe. Expanding to ten factors dilutes useful information with weaker signals and collinearity. K=20 has only 15 factors passing the gates and therefore duplicates K=15.
 
-![Baseline NAV](results/baseline/nav.en.png)
+| K | Actual count | Annualized | Sharpe | Max drawdown |
+| ---: | ---: | ---: | ---: | ---: |
+| **4** | **4** | **11.24%** | **0.543** | **-26.43%** |
+| 5 | 5 | 9.92% | 0.494 | -25.66% |
+| 6 | 6 | 8.06% | 0.389 | -30.14% |
+| 8 | 8 | 6.22% | 0.313 | -29.55% |
+| 10 | 10 | 6.25% | 0.305 | -29.40% |
+| 15 / 20 | 15 | 8.68% | 0.427 | -24.36% |
 
-After adding capacity constraints (ADV above the 20th percentile, at least 120 trading days since IPO) and using the same neutralized factors for testing and composition, the baseline turns negative: -28.62% cumulative, -3.04% annualized. The gap versus the previous +91.13% shows that the earlier excess return came mainly from illiquid small caps and is not reproducible once the ADV filter is applied. Annualized turnover of 10.43x costs about 2.1% per year, which does not explain the whole loss; the core issue remains stock-selection style and the long-only structure.
+![Factor-count sensitivity](results/main_strategy/k_curve.png)
 
-### Rolling Multi-Factor (Out-of-Sample)
+With K=4 and IVar fixed, Top 100 has the highest annualized return. Top 200 has a slightly higher Sharpe and shallower drawdown but lower absolute return, so the main strategy uses Top 100.
 
-Annual factor re-selection + monthly rebalancing, 2020-01-23 to 2025-12-31, 72 periods. The original ICIR-weighted Top-10 model is kept as the control. The **S7** variant adds a long-side gate (training-window long-side excess return > 0 with t ≥ 1) and long-side t-stat weights, and holds the Top 100 names:
-
-| Metric | Original Rolling (Top 10) | S7 Rolling (Top 100) | CSI 300 |
-| --- | ---: | ---: | ---: |
-| Cumulative return | -6.40% | +50.10% | 15.64% |
-| Annualized return | -1.11% | +7.08% | 2.45% |
-| Annualized volatility | 26.38% | 22.75% | 18.24% |
-| Sharpe ratio | -0.04 | 0.31 | 0.13 |
-| Maximum drawdown | -41.31% | -40.53% | -39.92% |
-| Annualized turnover | 10.68x | 9.07x | — |
-
-![S7 rolling NAV](results/rolling_top/top100/nav.en.png)
-
-S7 beats the benchmark out of sample (+50.10% vs +15.64%, Sharpe 0.31 vs 0.13). The improvement decomposes into **diversification** (largest), **long-side t weighting**, and the **long-side gate**. Two honest caveats: the excess return is **concentrated in 2025** (the strategy lagged the benchmark through 2020-2024 and only overtook it in the 2025 rally), and the drawdown around the **February 2024 small-cap liquidity crisis** (-40.53%) is deeper than the benchmark's -39.92%. For reference, the CSI 500 returned +38.82% over the same window (Sharpe 0.27). See `docs/strategy.md` section 11 for the full ablation and the config-by-holdings scan.
-
-### Fama-French Three-Factor (Out-of-Sample)
-
-Within the same tradable universe, independent 2x3 sorts on total market cap and B/M produce MKT, SMB, and HML. All three long-only strategies have insignificant FF3 alpha; returns are mainly market beta plus small-cap exposure. Top 100 portfolios have R² of 0.89–0.91, while GMVP Top 10 has R² of only 0.30, leaving about 70% as idiosyncratic risk.
-
-| Portfolio | Annualized alpha | alpha t | MKT | SMB | HML | R² |
+| TopN | 20 | 30 | 50 | **100** | 150 | 200 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Optimizer 2 GMVP Top 10 | -0.61% | -0.06 | 0.913 | 0.532 | 0.029 | 0.298 |
-| Optimizer 1 Top 100 | -3.00% | -0.85 | 1.202 | 0.553 | -0.074 | 0.886 |
-| S7 Top 100 | -1.80% | -0.60 | 1.091 | 0.571 | -0.059 | 0.906 |
-| CSI 300 | -3.74% | -2.43 | 1.103 | -0.279 | 0.042 | 0.960 |
-| CSI 500 | -1.21% | -0.54 | 1.112 | 0.136 | -0.115 | 0.918 |
+| Annualized | 4.86% | 5.74% | 7.18% | **11.24%** | 10.42% | 10.97% |
+| Sharpe | 0.235 | 0.276 | 0.354 | **0.543** | 0.510 | 0.546 |
+| Max drawdown | -28.48% | -29.10% | -27.73% | **-26.43%** | -26.68% | -25.37% |
 
-The full construction, Newey-West standard errors, and charts are in `docs/strategy.md` section 8 and [`results/ff3/`](results/ff3/).
+![Holdings-count sensitivity](results/main_strategy/topn_curve.png)
 
-### Attribution: Why the Baseline Turned Negative
+### FF3 Attribution: Beating Benchmarks Does Not Imply Significant Alpha
 
-A 2x2 ablation (capacity filter on/off x unified/split factor pipeline) isolates the cause of the +91.13% to -28.62% flip. Toggling the **capacity filter** moves cumulative return by 91-145 percentage points; toggling the **pipeline** moves it by only 25-29 points. The capacity filter (ADV 20th percentile + 120 listed days) is the dominant cause: the earlier +91.13% came almost entirely from illiquid small caps and recent IPOs that cannot absorb real capital. Results are in [`results/ablation/comparison.csv`](results/ablation/comparison.csv).
+The main strategy has annualized FF3 alpha of **-0.10%**, with t=-0.04, p=0.967, a 95% confidence interval of approximately [-5.03%, +4.82%], and R²=0.916. The correct conclusion is: **there is no evidence of significant pure alpha; returns come mainly from market and small-cap exposures, making this a small-cap style-enhanced β+ portfolio**. FF3 is an attribution benchmark, not another tradable portfolio; insignificant alpha does not mean the strategy underperforms CSI 300 or CSI 500.
 
-### 2026-11 Re-screening: WorldQuant-Only Pool + Top 30 (Current Main Configuration)
+![Main-strategy FF3 alpha and confidence interval](results/main_strategy/ff3_alpha.png)
 
-To address the old main strategy's large drawdown and low annualized return, the factor pool was rebuilt as suggested by the supervisor: only the 21 WorldQuant Alpha101 factors; Huatai and extension factors leave the main pool. The overlap audit finds no formula-identical pair, but Huatai `return_Nm` vs `wgt_return_Nm` / `exp_wgt_return_Nm` correlates 0.87–0.98 and cross-pool `return_1m` vs `Alpha9` is -0.80, so adding Huatai back mainly double-counts the same effect. Factors are ranked by |ICIR| (monthly IC is only 0.02–0.08, so |IC|>0.5 is not executable; |ICIR|≥0.5 is used), with an ex-ante fallback to 0.3 for 4–5 factors; Optimizer 1 uses `K_MIN=3`, `K_MAX=5`; holdings rise to 30.
+### Return Attribution from Actual Holdings
 
-| Configuration | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Old: 38-factor pool → Top 10 GMVP | +33.01% | 4.92% | 0.149 | -38.17% | 11.18 |
-| New: WQ 4–5 factors → Top 30 equal weight | +49.65% | 7.02% | 0.274 | -42.58% | 10.76 |
-| **New: WQ 4–5 factors → Top 30 IVar** | **+75.38%** | **9.92%** | **0.407** | **-37.25%** | **10.80** |
+Monthly cross-sectional regressions on actual holdings decompose portfolio returns into an intercept, four factor contributions and a residual. Values below are arithmetic sums of monthly contributions, not compounded NAV. Factor contributions can be positive or negative; a negative value is a drag over the corresponding period.
 
-Among the eight Top 30 weighting methods, IVar has both the highest Sharpe and the lowest drawdown; GMVP returns +73.68% / 0.394 / -40.38% and RB +70.24% / 0.383 / -38.76%, effectively the same level. The strict |ICIR|≥0.5 version keeps only 1–3 factors and returns +14.72%, Sharpe 0.102, drawdown -46.01%, worse than the old configuration, confirming that the fallback is a necessary ex-ante rule.
+| Component | Cumulative contribution | t-stat |
+| --- | ---: | ---: |
+| `a101_040` | +25.73% | 3.74 |
+| `a101_088` | +11.45% | 1.14 |
+| `alpha_097` | +13.38% | 2.26 |
+| `a158_cord20` | -2.64% | -0.28 |
+| Intercept | +70.08% | 1.32 |
+| Residual | -28.00% | -2.28 |
 
-Seven-sins audit (`results/audit/seven_sins_summary.md`): survivorship bias exists (delisted stocks cannot be restored); shifting the signal forward one period gives -99.39%, showing extreme timing sensitivity; 2022–2023 annual returns are -19.00% / -3.28% and are not hidden; 504 searches give a Bonferroni-corrected p=1.0, so the null cannot be rejected; annual turnover is about 10.8×, with annualized 9.82% at 0.2% and 12.19% at zero fees; the best five months contribute 101% of total return, and excluding them gives -12.86%; the long-only structure bears no borrow cost but gives up short-leg alpha. Drawdown improves only from -38.17% to -37.25% and is not fundamentally solved. See Section 13 of [`docs/strategy.md`](docs/strategy.md) for details.
+The negative contribution from `a158_cord20` is small and statistically insignificant, mainly reflecting decay after 2023. The fixed-factor design does not remove it mid-sample. Full outputs are in [`results/attribution_main/`](results/attribution_main/).
 
-Drawdown is further tested with the Chapter 9 methods (`results/audit/drawdown/`): daily max drawdown -39.90% (monthly -37.25%), 704 days underwater; across 40 random backtests IVar's median max drawdown is -29.35% versus -32.19% for equal weight, a 90% paired win rate (+2.26 pp); in stress scenarios the 2022 drawdown is -31.62% (deeper than all-A equal weight at -28.75%), while the 2024Q1 micro-cap crisis is -24.32% (shallower than -30.01%). The strategy is not defensive, and its absolute drawdown is still not presentable to clients.
+![Cumulative contributions of the four main-strategy factors](results/attribution_main/factor_contrib_bar.png)
 
-### 2026-11 Factor Library Expansion: Alpha191 / Alpha158 / Alpha101 / Tsinghua 22
+![Annual exposures of the four main-strategy factors](results/attribution_main/exposure_heatmap.png)
 
-The factor pool is rebuilt from four libraries, all implemented as vectorised month-end panels (`baseline/factor_lib/`): Alpha191 (189 usable formulas; `alpha030`/`alpha149` need external data), QLib Alpha158 (158), WorldQuant Alpha101 (101) and 22 price-volume factors from the Minsheng white paper. Total **470 factors**.
+### Transaction Costs and Strategy Capacity
 
-Single-factor screen: monthly RankIC over 2015–2025, cross-sectionally winsorised / industry-neutralised / z-scored, with **|IC| ≥ 0.05 and |ICIR| ≥ 0.5**. **40 factors pass** (Alpha191 14, Alpha158 17, Alpha101 2, Tsinghua 7); three pairs are formula duplicates (`alpha_042`=`a101_040`, `a158_roc20`=`alpha_088`, `a158_ma30`=`-a158_resi30`). Each survivor is backtested Top 30 equal weight: 17 of 40 are positive, the best is `alpha_097` at 8.8% annualised / Sharpe 0.335 / max drawdown -54.3%.
+Annualized one-way turnover is approximately **22.2x**, so a 0.002 one-way fee reduces annual return by about **4.44%**. Under a square-root market-impact model with k=10bp, robust capacity is approximately **RMB 100–300 million**: estimated net annualized return is 6.56% at RMB 300 million AUM and 2.70% at RMB 1 billion. The strategy is therefore not a scalable public-fund-style product; increasing capacity requires lower turnover rather than more factors.
 
-Optimizer 1 on the 40-factor pool (`K=3..5`, `|ICIR|≥0.5`, λ=0.3) and Optimizer 2 with eight weighting schemes:
+![Main-strategy capacity analysis](results/capacity/capacity.png)
 
-| Configuration | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Optimizer 1, Top 30 EW | +41.03% | 5.96% | 0.272 | -51.58% | 11.05 |
-| Optimizer 1, Top 50 EW | +69.65% | 9.31% | 0.422 | -43.86% | 10.95 |
-| Optimizer 1, Top 50 long-t weights | +99.58% | 12.34% | 0.566 | -42.37% | — |
-| **Optimizer 2, Top 50 IVar** | **+77.27%** | **10.12%** | **0.500** | **-38.33%** | **10.87** |
-| Optimizer 2, Top 50 GMVP (24m cov) | +87.12% | 11.01% | 0.575 | -37.24% | — |
+### Appendix: 40-Factor XGBoost (Not the Main Strategy)
 
-Rolling vs fixed factor strategies (`results/rolling_vs_fixed/`), both Top 30 EW, same universe and fee, 2020–2025 out-of-sample:
+XGBoost uses the 40 screened factors to capture nonlinear interactions. Because this violates the final limit of ten factors, it remains an appendix. Its raw label predicts next-month returns directly. Squared error gives extreme-return samples larger losses and gradients, while Top 30 selection by predicted return does not directly penalize volatility; the high-score portfolio can therefore concentrate in high-beta names. This does not mean the model unconditionally prefers every high-volatility stock. Concentrated Top 30 holdings and small/mid-cap exposure are also important drawdown sources.
 
-| Strategy | Cumulative | Annualized | Sharpe | Max drawdown | Annual turnover |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Rolling (retrain every year) | +23.03% | 3.55% | 0.182 | -35.59% | 11.02 |
-| **Fixed (select 2015–2019, freeze)** | **+50.96%** | **7.18%** | **0.344** | **-28.85%** | **11.16** |
+| Configuration | Input factors | Holdings | Annualized | Sharpe | Max drawdown | FF3 alpha (p) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Main: linear ICIR + IVar | 4 | Top 100 | **11.24%** | **0.543** | **-26.43%** | -0.10% (0.967) |
+| XGBoost raw + EW | 40 | Top 30 | 9.78% | 0.397 | -45.38% | +7.09% (0.107) |
+| XGBoost raw + IVar | 40 | Top 30 | 11.61% | 0.486 | -39.13% | +7.90% (0.110) |
 
-The fixed set wins on return, Sharpe and drawdown: yearly re-selection chases factors that decayed out of sample, while the 2015–2019 winners (turnover/reversal/correlation family) stayed effective.
+These configurations differ in holdings and factor constraints and are not fully matched comparisons. IVar only down-weights high-variance stocks after XGBoost selects the list; it does not change the selected names. Positive XGBoost alpha remains insignificant at the 5% level.
 
-![Rolling vs fixed NAV](results/rolling_vs_fixed/nav_compare.png)
+![Top 30 appendix candidates and benchmarks](results/final/nav_compare.png)
 
-Market-neutral comparison (`results/neutral_pool/`, 2021-01 to 2025-12): IF hedge at zero basis lifts Sharpe from 0.248 to 0.306 and cuts max drawdown from -38.33% to -22.59%, but at a realistic 4% annual basis the annualised return falls to 0.41%. IC hedging is worse (-17.58% max drawdown but only 1.71% annualised at zero basis). Neutral is therefore **not** adopted by default.
+**Why does the figure say “Linear N=5 / N=10” instead of 4?** It is a historical Top 30 comparison created before the final main strategy was selected. Five and ten are the factor counts of two earlier linear controls, not current main-strategy parameters. The current main strategy remains K=4 and Top 100. Throughout the text, **K denotes factor count and N denotes holdings count**. Adding K=4 to this figure requires a new matched Top 30 backtest; the five-factor curve cannot simply be relabelled as four.
 
-![Neutral NAV](results/neutral_pool/nav_neutral.png)
+![Stock-level risk weights for XGBoost Top 30](results/xgb_riskweight/riskweight_compare.png)
 
-Honest note: none of these configurations reaches the 15% annualised target; the best pool-based result is 10.12% (12.34% with long-t weights), only marginally above the previous 9.92%. The factor library mainly improves breadth and drawdown control rather than raw return.
+### Historical Experiment Index
+
+The legacy 38-factor Top 10 baseline, S7 rolling portfolio, WorldQuant-only Top 30, 40-factor-pool Top 50, market-neutral test, seven-sins audit and drawdown audit remain in the evolution chapters of [`docs/strategy.md`](docs/strategy.md). They document the research process and are no longer mixed with the current K=4, IVar, Top 100 results.
+
+Reproduce the main strategy and appendix with:
 
 ```bash
-python baseline/factor_screen.py --backtest          # compute, screen and single-factor backtests
-set FACTOR_SOURCE=factor_pool
-set OPT1_OUTPUT=optimizer1_pool& set OPT1_ICIR_MIN=0.5& set OPT1_K_MIN=3& set OPT1_K_MAX=5& set OPT1_TOP_N=10,30,50
-python baseline/optimizer1_heuristic.py
-set OPT2_OUTPUT=optimizer2_pool& set OPT2_COMPOSITE=optimizer1_pool/composite_factor.csv& set OPT2_TOP_N=10,30,50
-python baseline/optimizer2_weights.py
-set RM_OUTPUT=rolling_pool& set RM_TOP_N=30& python baseline/rolling_multifactor.py
-set FIXED_OUTPUT=fixed_pool& python baseline/fixed_factor.py
-python baseline/compare_rolling_fixed.py
+python baseline/main_strategy_a.py
+python baseline/attribution_main.py
+python baseline/capacity_analysis.py
+
+# Appendix: 40-factor XGBoost, not the main strategy
+python baseline/xgb_strategy.py
+python baseline/xgb_riskweight.py
 ```
 
 ## Project Structure
 
 ```
 .
-├── baseline/                  Baseline, diagnosis, rolling models, optimizer experiments
-│   ├── price_volume_baseline.py
-│   ├── factor_longshort.py
-│   ├── rolling_multifactor.py
-│   ├── rolling_top_weighted.py     S7 rolling (long-side gate + t weights)
-│   ├── optimizer_factor_selection.py
-│   └── ablation_attribution.py
-├── data/                      Market data (not versioned)
-│   └── raw/                   One long-table CSV per stock
-├── data_io/                   Wide-table readers
+├── baseline/                     Strategy, optimizer and audit scripts
+│   ├── main_strategy_a.py        Current K=4 + IVar Top 100 strategy
+│   ├── attribution_main.py       Return attribution from actual holdings
+│   ├── capacity_analysis.py      Fees, market impact and capacity
+│   ├── xgb_strategy.py           40-factor XGBoost appendix
+│   ├── xgb_riskweight.py         XGBoost stock-level risk weights
+│   ├── factor_lib/               Vectorized implementations of 470 candidates
+│   └── ...                       Baseline, rolling and historical controls
+├── data/                         Market data (not versioned)
+│   └── raw/                      One long-table CSV per stock
+├── data_io/                      Wide-table readers
 ├── docs/
-│   └── strategy.md            Strategy design document (Chinese)
+│   ├── strategy.md               Full Chinese strategy document
+│   └── strategy.en.md            English strategy document
 ├── results/
-│   ├── baseline/              Baseline outputs
-│   │   ├── factor_summary.csv
-│   │   ├── longshort.csv
-│   │   ├── performance.csv
-│   │   └── nav.png
-│   ├── rolling/               Original rolling model outputs
-│   ├── rolling_top/           S7 rolling outputs (top10/50/100)
-│   ├── optimizer/             Factor selection and holdings scans
-│   └── ablation/              2x2 attribution outputs
-├── scripts/                   Data download and wide-table conversion
-│   ├── 00_auto_resume_download.py
-│   ├── 01_download_a_share.py
-│   ├── 01a_download_sh.py
-│   ├── 01b_download_sz.py
-│   ├── 02_pivot_to_wide.py
-│   ├── 02a_pivot_sh.py
-│   ├── 02b_pivot_sz.py
-│   ├── 03_download_index_aux.py
-│   ├── _baostock_common.py
-│   └── _pivot_common.py
-└── utils/                     Factor tests, stock selection, NAV calculation
+│   ├── main_strategy/            Main metrics, IC, NAV, sensitivity and holdings
+│   ├── attribution_main/         Main factor contributions and exposures
+│   ├── capacity/                 Capacity estimates
+│   ├── final/                    Top 30 appendix candidate comparison
+│   ├── xgb_strategy/             XGBoost predictions and performance
+│   ├── xgb_riskweight/           XGBoost risk weights and holdings
+│   └── ...                       Historical experiments and audits
+├── scripts/                      Data download and wide-table conversion
+└── utils/                        Factor tests, stock selection and NAV calculation
 ```
 
 ## Quick Start
@@ -245,13 +225,15 @@ python scripts/02_pivot_to_wide.py
 
 This writes wide tables such as `close_sh.csv` and `adj_factor_sz.csv`, plus derived `adj_close_*.csv`, `total_mv_*.csv`, and `circ_mv_*.csv`.
 
-### 3. Run the Baseline
+### 3. Run the Current Main Strategy
 
 ```bash
-python baseline/price_volume_baseline.py
+python baseline/main_strategy_a.py
+python baseline/attribution_main.py
+python baseline/capacity_analysis.py
 ```
 
-Results are written to `results/baseline/`.
+Main metrics, charts and monthly holdings are written to `results/main_strategy/`; attribution and capacity outputs go to `results/attribution_main/` and `results/capacity/`. The legacy 38-factor baseline can still be reproduced with `python baseline/price_volume_baseline.py`, but it is not the current main strategy.
 
 ## Data Notes
 
@@ -269,39 +251,34 @@ backAdjustFactor, totalShare, liqaShare
 
 The full design is available in [English](docs/strategy.en.md) and [Chinese](docs/strategy.md).
 
-- One back-adjusted price series end to end, so factors, returns, and NAV share the same basis;
-- The universe excludes ST stocks, recent IPOs (less than 120 trading days), and the bottom 20% by ADV; capacity screening happens before factor tests;
-- No initial capital is assumed; NAV is computed from portfolio weights, and ADV is only a liquidity constraint;
-- Factors are winsorized with MAD, industry-demeaned, and Z-scored; tests and composition use the same version;
-- Factor weights are normalized |ICIR| over the training window in the baseline; the S7 variant uses long-side t-stat weights behind a long-side gate; no time-series model forecasts factor returns;
-- Five-year training window, one-year rolling step, out-of-sample 2020–2025;
-- Turnover is computed from drifted weights to avoid overstating costs;
-- Capital allocation will cover eight methods: equal weight, inverse volatility, inverse variance, minimum variance, equal risk contribution, risk budgeting, maximum diversification, and maximum decorrelation (planned; V1 is equal weight).
+- One back-adjusted price series end to end, so factors, returns and NAV share the same basis;
+- The daily tradable universe excludes ST and suspended stocks, listings younger than 120 trading days, and stocks whose 60-day ADV is below the cross-sectional 20th percentile; liquidity screening occurs before factor tests;
+- All 470 candidates use the same MAD winsorization, industry demeaning and Z-score pipeline; 40 pass the initial screen and four are fixed in the main strategy, with identical factor versions for testing and composition;
+- Optimizer 1 combines |ICIR| gates, long-side tests, collinearity constraints and λ=0.3 shrinkage; the main strategy freezes its factors, while annual rolling reselection is only a control;
+- Optimizer 2 implements all eight long-only allocation methods; the current strategy uses normalized IVar weights within Top 100;
+- Rebalancing is monthly and the out-of-sample window is 2020–2025; turnover uses drifted weights, and the 0.002 one-way fee is deducted only at the NAV stage;
+- Outputs include NAV, drawdown, IC, K/TopN sensitivity, FF3, actual-holdings attribution, capacity charts and monthly Excel holdings; no holdings-weight heatmap is generated.
 
 ## Known Limitations
 
-1. The benchmark is the CSI 300 price index without dividends, while stock returns are back-adjusted and include dividends, so the excess-return basis is conservative.
+1. CSI 300 and CSI 500 are price indices without dividend reinvestment, while back-adjusted stock returns include dividend effects; benchmark-relative returns must be interpreted with this mismatch in mind.
 2. Baostock does not provide daily bars for delisted stocks; about 241 names delisted during 2015–2025 are missing, so the backtest has survivorship bias and returns are slightly optimistic.
 3. Industry classification is a current snapshot only, so industry neutralization in early years is slightly biased.
 4. Share counts are quarterly snapshots, so market cap cannot be computed exactly by day.
 5. Baostock does not cover the Beijing Stock Exchange; "all A-shares" here means Shanghai + Shenzhen.
-6. Limited capacity: the main strategy turns over 22x per year (one-way); under a square-root impact model the robust capacity is about RMB 1–3 hundred million (see [docs/strategy.md section 11.5](docs/strategy.md)).
+6. Limited capacity: the main strategy turns over 22.2x per year (one-way); under a square-root impact model, robust capacity is about RMB 100–300 million (see [docs/strategy.md section 11.5](docs/strategy.md)).
 
 ## Progress
 
-- [x] Shanghai/Shenzhen A-share download and wide-table conversion
-- [x] Back-adjusted prices, monthly panel, universe and capacity filters
-- [x] 38 price-volume factors and single-factor tests
-- [x] Long-short return diagnosis for the 38 factors
-- [x] Single-factor baseline backtest
-- [x] Rolling multi-factor model (annual factor re-selection, monthly rebalancing, ICIR fallback rule)
-- [x] Optimizer 1: strict gates + heuristic factor search + λ weight shrinkage
-- [x] Return attribution (capacity x pipeline 2x2 ablation)
-- [x] Optimizer 2: comparison of eight capital allocation methods
-- [x] Fama-French three-factor comparison (`results/ff3/`)
-- [x] Factor-pool re-screening (WorldQuant only + ICIR ranking + overlap audit)
-- [x] Optimizer 1 with 4–5 factors and Top 30 main configuration
-- [x] Seven-sins audit (`results/audit/`)
-- [x] Multi-method drawdown tests (metrics + 40 random backtests + stress scenarios, `results/audit/drawdown/`)
-- [x] Market-neutral feasibility test (hedge return/variance, basis sensitivity); not adopted as the main strategy
+- [x] Shanghai/Shenzhen data download, back-adjusted wide tables, dynamic universe and liquidity filters
+- [x] 470 candidates from four factor libraries, with 40 passing the IC/ICIR initial screen
+- [x] Optimizer 1 gates, collinearity control and λ shrinkage; all eight Optimizer 2 weighting methods
+- [x] Current main strategy: fixed K=4 + ICIR + IVar + Top 100, with monthly Excel holdings
+- [x] Out-of-sample sensitivity tests for factor count K and holdings count TopN
+- [x] Matched fixed-versus-rolling and CSI 300/CSI 500 comparisons
+- [x] FF3 attribution and significance tests, identifying the strategy as a style-enhanced β+ portfolio
+- [x] Four-factor contribution and exposure attribution from actual holdings
+- [x] Fee sensitivity, market-impact and strategy-capacity analysis
+- [x] Appendix for 40-factor XGBoost, raw/rank labels and stock-level risk weights
+- [x] Seven-sins, drawdown and market-neutral audits; neutral version not adopted
 - [ ] Xueqiu paper-trading tracking
