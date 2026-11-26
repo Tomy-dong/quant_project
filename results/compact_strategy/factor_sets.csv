@@ -1,0 +1,5 @@
+﻿N,因子数,因子
+5,5,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20
+6,6,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20; ts_retnmax
+8,8,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20; ts_retnmax; alpha_118; alpha_055
+10,10,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20; ts_retnmax; alpha_118; alpha_055; a158_kbar_klen; alpha_069

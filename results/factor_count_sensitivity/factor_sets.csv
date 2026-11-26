@@ -1,0 +1,37 @@
+﻿K,年份,入选因子,K实际,降级
+3,2020,a101_040; a101_088; alpha_097,3,False
+3,2021,a158_corr10; alpha_097; ts_idvol,3,False
+3,2022,alpha_097; a158_corr20; ts_idvol,3,False
+3,2023,a101_040; alpha_097; a158_qtld20,3,False
+3,2024,a158_corr10; ts_retnmax; a158_qtld20,3,False
+3,2025,alpha_042; alpha_097; alpha_158,3,False
+4,2020,a101_040; a101_088; alpha_097; a158_cord20,4,False
+4,2021,alpha_140; alpha_097; a158_cord30; ts_idvol,4,False
+4,2022,alpha_042; alpha_097; a158_cord20; ts_idvol,4,False
+4,2023,alpha_042; alpha_097; a158_corr20; a158_qtld20,4,False
+4,2024,alpha_042; alpha_097; ts_retnmax; a158_qtld20,4,False
+4,2025,alpha_042; alpha_097; a158_corr20; alpha_158,4,False
+5,2020,a101_040; a101_088; alpha_097; a158_cord20; a158_kbar_klen,5,False
+5,2021,a158_corr10; alpha_140; alpha_097; a158_cord30; ts_idvol,5,False
+5,2022,alpha_042; alpha_097; a158_corr20; alpha_055; ts_idvol,5,False
+5,2023,alpha_042; alpha_097; ts_retnmax; a158_corr20; alpha_071,5,False
+5,2024,alpha_042; alpha_097; ts_retnmax; a158_corr20; a158_qtld20,5,False
+5,2025,alpha_042; alpha_097; ts_retnmax; a158_corr20; a158_kbar_klen,5,False
+6,2020,a101_040; a101_088; alpha_097; ts_retnmax; a158_cord30; a158_qtld20,6,False
+6,2021,a101_040; alpha_140; alpha_097; a158_cord30; a158_corr30; ts_idvol,6,False
+6,2022,a101_040; alpha_097; a158_cord20; a158_corr30; alpha_059; ts_idvol,6,False
+6,2023,a101_040; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_071,6,False
+6,2024,alpha_042; alpha_097; ts_retnmax; a158_corr20; alpha_118; a158_qtld20,6,False
+6,2025,alpha_042; alpha_097; ts_retnmax; a158_corr20; alpha_118; a158_kbar_klen,6,False
+8,2020,a101_040; a101_088; alpha_097; ts_retnmax; a158_cord20; a158_corr30; a158_qtld20; ts_idvol,8,False
+8,2021,a158_corr10; alpha_140; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_116; ts_idvol,8,False
+8,2022,alpha_042; alpha_097; ts_retnmax; a158_corr20; a158_cord20; alpha_118; alpha_055; ts_idvol,8,False
+8,2023,a158_corr10; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_118; ts_lagretn; alpha_059,8,True
+8,2024,alpha_042; alpha_140; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_118; a158_qtld20,8,False
+8,2025,alpha_042; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_118; a158_kbar_klen; ts_volumed,8,False
+10,2020,a101_040; a101_088; alpha_097; ts_retnmax; a158_cord20; a158_kbar_klen; a158_corr30; a158_qtld20; alpha_059; alpha_187,10,False
+10,2021,a158_corr10; alpha_140; alpha_097; ts_retnmax; a158_corr20; a158_cord20; alpha_159; alpha_118; alpha_059; ts_idvol,10,True
+10,2022,a158_corr10; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_159; alpha_118; alpha_059; a158_std5; ts_idvol,10,True
+10,2023,a158_corr10; alpha_140; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_118; ts_volumed; ts_lagretn; alpha_059,10,True
+10,2024,a158_corr10; alpha_140; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_118; a158_qtld20; a158_qtld60; alpha_059,10,True
+10,2025,a158_corr10; alpha_097; ts_retnmax; a158_corr20; a158_cord30; alpha_159; alpha_118; alpha_158; ts_volumed; a158_qtld60,10,True

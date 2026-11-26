@@ -1,10 +1,12 @@
-# A-Share Multi-Factor Stock Selection and Market-Neutral Strategy
+# A-Share Multi-Factor Stock Selection Strategy
 
 **English** | [中文](README.zh-CN.md)
 
-The strategy uses price-volume factors as its alpha source. At the portfolio level it has two branches: active management, which keeps benchmark beta and targets excess return over the CSI 300; and market neutral, which hedges systematic beta with index futures and keeps only factor return. Both branches share the same factors and composite scores.
+The strategy uses price-volume factors as its alpha source and runs a **long-only active** book that keeps benchmark beta and targets excess return over the CSI 300 (with the CSI 500 as a comparison benchmark). A market-neutral branch was fully evaluated but not adopted: hedging removes only about 16% of the variance, and a 4% annual basis consumes the remaining return (see docs/strategy.md section 14.4).
 
-This repository implements the **active (long-only) branch**: the data pipeline, factor tests, single-factor baseline, rolling multi-factor model (annual factor re-selection + monthly rebalancing), Optimizer 1's full heuristic screening with λ shrinkage, and Optimizer 2's eight capital-allocation methods. The market-neutral branch was evaluated but not adopted: hedging removes only about 16% of the variance, and a 4% annual basis consumes the remaining return.
+This repository implements the data pipeline, factor tests, single-factor baseline, fixed/rolling multi-factor models, Optimizer 1's heuristic screening with λ shrinkage, and Optimizer 2's eight capital-allocation methods.
+
+> **2026-11 main strategy (Plan A): 470 factors → screened to 40 → Optimizer 1 (|ICIR|≥0.5, K=4 best) → fixed factor set → Optimizer 2 IVar → Top 100.** Out-of-sample 2020–2025: cumulative +89.46%, annualized **11.24%**, Sharpe **0.543**, max drawdown **-26.43%** (much better than CSI 300 -39.9% / CSI 500 -37.0%), excess +8.75% vs CSI 300 and +5.54% vs CSI 500; FF3 alpha -0.10% (p=0.967, not significant, R²=0.916), so returns are explained mostly by market/size style. Drawdown and benchmark-beating targets are met; the 15% annualized target is not. The factor-count sweep shows K=4 is best and K>10 is worse; relaxing the "≤10 factors" constraint to a 40-factor XGBoost reaches 11.61% with deeper drawdown (Appendix, Section 15). Factor-count and holdings-count sensitivity is in Section 12.4; holdings are in `results/main_strategy/holdings_main.xlsx` (no heatmap).
 
 ## Contents
 
@@ -283,6 +285,7 @@ The full design is available in [English](docs/strategy.en.md) and [Chinese](doc
 3. Industry classification is a current snapshot only, so industry neutralization in early years is slightly biased.
 4. Share counts are quarterly snapshots, so market cap cannot be computed exactly by day.
 5. Baostock does not cover the Beijing Stock Exchange; "all A-shares" here means Shanghai + Shenzhen.
+6. Limited capacity: the main strategy turns over 22x per year (one-way); under a square-root impact model the robust capacity is about RMB 1–3 hundred million (see [docs/strategy.md section 11.5](docs/strategy.md)).
 
 ## Progress
 

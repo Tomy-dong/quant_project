@@ -59,16 +59,19 @@ def _read_one(field: str, market: str) -> Optional[pd.DataFrame]:
 def load_benchmark(startdate: str, enddate: str, index: str = "csi300") -> pd.DataFrame:
     """载入基准日线。
 
-    index='csi300'（默认）取沪深 300，index='csi500' 取中证 500（对照基准）。
+    index='csi300'（默认）取沪深 300，index='csi500' 取中证 500，
+    index='csi200' 取中证 200（中盘对照基准）。
 
-    Load the benchmark: 'csi300' (default) or 'csi500'.
+    Load the benchmark: 'csi300' (default), 'csi500' or 'csi200'.
     """
     if index == "csi300":
         both = _read_one('csi300_daily', None)
     elif index == "csi500":
         both = _read_one('benchmark', None)
+    elif index == "csi200":
+        both = _read_one('csi200_daily', None)
     else:
-        raise ValueError(f"未知基准：{index}，可选 csi300 / csi500")
+        raise ValueError(f"未知基准：{index}，可选 csi300 / csi500 / csi200")
     start = pd.to_datetime(startdate)
     end = pd.to_datetime(enddate)
     both = both.loc[(both.index >= start) & (both.index <= end)]

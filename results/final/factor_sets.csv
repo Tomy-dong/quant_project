@@ -1,0 +1,5 @@
+﻿策略,因子
+线性N=5,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20
+线性N=10,a101_088; a101_040; alpha_097; a158_corr20; a158_cord20; ts_retnmax; alpha_118; alpha_055; a158_kbar_klen; alpha_069
+XGBoost合成,a158_min30; ts_std_turn; a158_qtld30; a158_roc20; alpha_158; alpha_106; alpha_042; a158_min20; ts_volumed; alpha_097
+XGBoost+IVar,a158_min30; ts_std_turn; a158_qtld30; a158_roc20; alpha_158; alpha_106; alpha_042; a158_min20; ts_volumed; alpha_097

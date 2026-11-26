@@ -1,4 +1,4 @@
-# A-Share Multi-Factor Stock Selection and Market-Neutral Strategy
+# A-Share Multi-Factor Stock Selection Strategy
 
 ## 1. Overview
 
@@ -10,6 +10,8 @@ The strategy uses pure price-volume factors as its source of alpha. At the portf
 The two branches differ only in portfolio construction and hedging, not in their factors. Factor efficacy must therefore be tested independently before the branches diverge; otherwise, it is impossible to determine whether portfolio returns come from the factors or from beta exposure.
 
 The repository currently implements the active-management branch's data pipeline, factor tests, single-factor baseline, rolling multi-factor model (annual factor rotation + monthly stock rotation), Optimizer 1's full heuristic screening with λ weight shrinkage, and Optimizer 2's eight capital-allocation methods. The market-neutral branch was evaluated but not adopted as the main strategy: hedging removes only about 16% of the variance, and a 4% annual basis consumes the remaining return (see 12.2).
+
+> **2026-11 main strategy (Plan A): 470 factors → 40 after screening → Optimizer 1 (|ICIR|≥0.5, K=4 best) → fixed factor set → Optimizer 2 IVar → Top 100.** Out-of-sample 2020–2025: cumulative +89.46%, annualized **11.24%**, Sharpe **0.543**, max drawdown **-26.43%** (vs CSI 300 -39.9% / CSI 500 -37.0%), excess +8.75% vs CSI 300 and +5.54% vs CSI 500; FF3 alpha -0.10% (p=0.967, not significant, R²=0.916), so returns are explained mostly by market/size style. Drawdown control and benchmark beating are met, but neither the 15% annualized target nor a significant alpha is. The factor-count sweep shows K=4 is best and K>10 is worse; a 40-factor XGBoost model reaches 11.61% but violates the ≤10-factor constraint, so it is kept as an appendix (Section 15 of the Chinese document). Factor-count and holdings-count sensitivity is documented in Section 12.4. This English document keeps the historical record below.
 
 The strategy factors use only back-adjusted OHLCV, turnover rates, and trading value; the FF3 comparison additionally uses PB and total market cap, but only for performance attribution and never for stock selection. Factors can therefore be recomputed at each month-end using market data known at that time, with no look-ahead problem caused by financial-report disclosure lags.
 
@@ -26,7 +28,7 @@ Core settings:
 | Benchmark | CSI 300 (sh.000300, primary); CSI 500 (sh.000905, comparison) |
 | Transaction cost | 0.002 one-way |
 | Position direction | Long-only |
-| Number of holdings per period | Main configuration: 30 stocks (2026-11 revision, see Section 13); historical comparisons: baseline 10, S7 10 / 50 / 100 |
+| Number of holdings per period | Main configuration: 100 stocks (2026-11 Plan A, see Section 12.4); historical comparisons: Top 10 / 30 / 50 |
 
 The development sequence is to complete the single-factor baseline first, then add multi-factor combination, factor selection, and capital-allocation optimization. Each step is compared with the preceding step in the same environment and retained only after its incremental contribution is confirmed. Single-factor baseline results are available in `results/baseline/`.
 
@@ -979,7 +981,7 @@ Without capacity and structural optimization, the excess returns of a pure price
 
 This section consolidates the final, reproducible results from the current code. All figures follow the latest CSVs under `results/ff3/`, `results/optimizer2/`, and `results/rolling_top/`, and can be cited directly in the final report and presentation.
 
-> Convention note: after the 2026-11 revision the main configuration is Top 30 (Section 13). The Top 10 table in 12.1 is kept as the previous version for comparison; cite 13.3 for the current configuration.
+> Convention note: this English document preserves the historical chain (Top 10 → Top 30 revision → pool expansion). The **current main configuration (2026-11 Plan A)** is fixed K=4 + IVar + Top 100, with 2020–2025 results annualized 11.24%, Sharpe 0.543, max drawdown -26.43%, excess +8.75% vs CSI 300 and +5.54% vs CSI 500, FF3 alpha -0.10% (p=0.967). The tables below are kept as the evolution record.
 
 ### 12.1 Main Results (Out of Sample, 2020–2025)
 
@@ -1238,6 +1240,8 @@ The only difference is whether factors are retrained: rolling re-selects factors
 
 Fixed wins on all three. Rolling tends to chase factors that decayed out of sample; the 2015-2019 winners (turnover, reversal, price-volume correlation) remained effective, and freezing them avoided that chase. **The fixed set is adopted.**
 
+> The table above is the Top 30 EW evolution experiment. Plan A uses IVar + Top 100: fixed K=4 annualizes 11.24% vs rolling K=4 at 8.50%, so the conclusion is unchanged; see Section 12.1 of the Chinese document.
+
 ### 14.4 Neutral vs long-only
 
 Using the Optimizer-2 Top 50 IVar holdings as the long leg, hedged with CSI 300 (IF) and CSI 500 (IC) futures (24-month rolling beta, monthly rebalance, 60 months from 2021-01):
@@ -1253,4 +1257,4 @@ At zero basis IF hedging cuts drawdown to -22.59% and lifts Sharpe to 0.306, but
 
 ### 14.5 Gap to the target
 
-The target is 15%+ annualised, drawdown below 40%, and the best possible Sharpe. The best pool-based configuration delivers 10.12% (12.34% with long-side t weights), -38.33% drawdown and Sharpe 0.500; the fixed-factor strategy delivers 7.18% with only -28.85% drawdown. The expansion improved breadth and drawdown control but not the return level. Going further would require weekly rebalancing, event/fundamental factors, or portfolio-level timing rather than more monthly price-volume factors.
+The target is 15%+ annualised, drawdown below 40%, and the best possible Sharpe. In this chapter's Top 30 EW setting the best pool-based configuration delivers 10.12% (12.34% with long-side t weights), -38.33% drawdown and Sharpe 0.500; the fixed-factor strategy delivers 7.18% with only -28.85% drawdown. Under Plan A (Top 100 + IVar) the main strategy reaches 11.24% annualized, -26.43% drawdown and Sharpe 0.543. The expansion improved breadth and drawdown control but not the return level. Going further would require weekly rebalancing, event/fundamental factors, or portfolio-level timing rather than more monthly price-volume factors.

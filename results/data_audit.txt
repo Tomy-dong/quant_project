@@ -1,0 +1,81 @@
+========================================================================
+数据完整性审计 / Data Audit
+========================================================================
+
+[1] 股票日频数据 (data/*.csv)
+  交易日历(close_sh)：2015-01-05 ~ 2025-12-31，共 2674 个交易日
+  沪市股票数：2343，深市股票数(close_sz)：3025，合计 5368
+  close_sz 日期范围：2015-01-05 ~ 2025-12-31，2674 行，与沪市日历是否一致：True
+
+  各字段文件覆盖：
+    adj_factor     sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    amount         sh_cols=2343 | sh_rows=2674 | sh_nan%=29.18 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.27 | sz_date=2015-01-05~2025-12-31
+    close          sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    high           sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    is_st          sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    low            sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    open           sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    pb             sh_cols=2343 | sh_rows=2674 | sh_nan%=29.11 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.16 | sz_date=2015-01-05~2025-12-31
+    total_mv       sh_cols=2343 | sh_rows=2674 | sh_nan%=29.45 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.37 | sz_date=2015-01-05~2025-12-31
+    turnover_rate  sh_cols=2343 | sh_rows=2674 | sh_nan%=30.43 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=25.57 | sz_date=2015-01-05~2025-12-31
+    vol            sh_cols=2343 | sh_rows=2674 | sh_nan%=29.18 | sh_date=2015-01-05~2025-12-31 | sz_cols=3025 | sz_rows=2674 | sz_nan%=23.27 | sz_date=2015-01-05~2025-12-31
+
+  元数据/其他文件：
+    benchmark.csv  (196 KB)
+    csi200_daily.csv  (330 KB)
+    csi300_daily.csv  (265 KB)
+    sse_stock_basic.csv  (217 KB)
+    stk_company_info.csv  (465 KB)
+    trade_calendar.csv  (55 KB)
+
+[2] 基准指数
+  沪深300            csi300_daily.csv: 2015-01-05 ~ 2025-12-31，2674 行，close列=有，落在交易日历内 2674/2674
+  中证500            benchmark.csv: 2015-01-05 ~ 2025-12-31，2674 行，close列=有，落在交易日历内 2674/2674
+  中证200(已下载,备用)    csi200_daily.csv: 2010-01-04 ~ 2025-12-31，3885 行，close列=有，落在交易日历内 2673/3885
+
+[3] 因子面板 (results/factor_pool/)
+  npz 文件数：5
+  meta.npz 键：['dates', 'columns']
+    dates: shape=(132,), dtype=datetime64[ns], len=132
+    columns: shape=(5368,), dtype=object, len=5368
+  alpha101.npz: 101 因子；样例 a101_001 shape=(132, 5368) dtype=float32
+  alpha158.npz: 158 因子；样例 a158_kbar_kmid shape=(132, 5368) dtype=float32
+  alpha191.npz: 189 因子；样例 alpha_001 shape=(132, 5368) dtype=float32
+  tsinghua.npz: 22 因子；样例 ts_turn shape=(132, 5368) dtype=float32
+
+[4] 三因子 (results/ff3/ff3_factors.csv)
+  2020-01-23 ~ 2025-12-31，72 行，列：['MKT', 'SMB', 'HML', 'RF', '股票数']
+  NaN 统计：
+MKT    0
+SMB    0
+HML    0
+RF     0
+股票数    0
+  均值：MKT=0.0051 SMB=0.0043 HML=0.0053 RF=0.0017
+
+[5] 已有核心结果目录
+  factor_screen        存在，5 个文件
+  single_factor        存在，81 个文件
+  optimizer1_pool      存在，66 个文件
+  optimizer2_pool      存在，258 个文件
+  fixed_pool           存在，6 个文件
+  rolling_pool         存在，5 个文件
+  rolling_vs_fixed     存在，4 个文件
+  neutral_pool         存在，6 个文件
+  benchmark_compare    存在，7 个文件
+  ff3                  存在，8 个文件
+
+[6] 关键结果文件抽查
+  筛选通过因子数: results\factor_screen\screen_pass.csv  (40 行)
+    达标因子数=40，家族分布：
+家族
+Alpha158    17
+Alpha191    14
+清华22         7
+Alpha101     2
+  优化器一选择汇总: results\optimizer1_pool\selection_summary.csv  (6 行)
+  固定因子绩效: results\fixed_pool\performance.csv  (6 行)
+  优化器二top50 IVar绩效: results\optimizer2_pool\top50\IVar\performance.csv  (6 行)
+
+========================================================================
+审计完成 / Audit done

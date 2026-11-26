@@ -84,9 +84,9 @@ TRAIN_YEARS = rm.TRAIN_YEARS            # 5 年训练窗 / 5-year training windo
 OOS_START_YEAR = rm.OOS_START_YEAR
 OOS_END_YEAR = rm.OOS_END_YEAR
 
-# 可通过环境变量覆盖，默认值与旧版保持一致
-# Overridable via environment variables; defaults keep the legacy behaviour.
-ICIR_MIN = float(os.environ.get("OPT1_ICIR_MIN", 0.2))
+# 可通过环境变量覆盖；2026-11 起默认 |ICIR| 门槛由 0.2 上调到 0.5
+# Overridable via environment variables; default |ICIR| raised from 0.2 to 0.5.
+ICIR_MIN = float(os.environ.get("OPT1_ICIR_MIN", 0.5))
 LONG_T_MIN = 1.0                        # 多头 t 下限 / min long-side t
 VOL_PCT = 0.70                          # 多空波动分位上限 / vol percentile cap
 RHO_MAX = 0.7                           # 两两相关上限 / max pairwise correlation
