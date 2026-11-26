@@ -115,6 +115,7 @@ def main():
 
     strategies = {}
     factor_sets = {}
+    factor_counts = {}  # 实际输入因子数，与特征重要性展示数量分开记录
 
     # 线性固定因子 N=5 / N=10，因子等权
     for N in (5, 10):
@@ -127,6 +128,7 @@ def main():
         pnl = backtest_top30(composite, returns.loc[composite.index])
         strategies[f"线性N={N}"] = pnl
         factor_sets[f"线性N={N}"] = chosen
+        factor_counts[f"线性N={N}"] = len(chosen)
 
     # XGBoost 合成
     if XGB_COMPOSITE.exists():
@@ -136,7 +138,8 @@ def main():
         pnl_xgb = backtest_top30(comp_xgb, returns.loc[comp_xgb.index])
         strategies["XGBoost合成"] = pnl_xgb
         imp = pd.read_csv(RESULT / "xgb_strategy" / "feature_importance.csv")
-        factor_sets["XGBoost合成"] = list(imp.iloc[:10, 0])
+        factor_counts["XGBoost合成"] = len(imp)
+        factor_sets["XGBoost合成"] = list(imp.iloc[:10, 0])  # 仅展示重要性 Top10
         # XGBoost 选股 + IVar 股票层风险权重（主方案）
         rets_xgb = returns.loc[comp_xgb.index]
         common = comp_xgb.columns.intersection(rets_xgb.columns)
@@ -145,6 +148,7 @@ def main():
         out_ivar = calc_nav(rets_xgb[common].fillna(0), w_ivar, comsn=COMSN)
         strategies["XGBoost+IVar"] = out_ivar["pnl"]
         factor_sets["XGBoost+IVar"] = factor_sets["XGBoost合成"]
+        factor_counts["XGBoost+IVar"] = factor_counts["XGBoost合成"]
     else:
         print("  警告：未找到 XGBoost composite，跳过")
 
@@ -172,7 +176,7 @@ def main():
         diff300 = (pnl - b300).dropna()
         ir300 = (diff300.mean() / diff300.std(ddof=1) * np.sqrt(12)
                  if diff300.std(ddof=1) > 0 else np.nan) if "线性" in name or "XGB" in name else np.nan
-        row = {"策略": name, "因子数": len(factor_sets.get(name, [])),
+        row = {"策略": name, "因子数": factor_counts.get(name, 0),
                **m, "超额沪深300": ex300, "IR沪深300": ir300,
                "超额中证500": ex500}
         if reg:
