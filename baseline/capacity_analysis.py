@@ -170,7 +170,30 @@ def main():
     fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(OUT / "capacity.png", dpi=150)
     plt.close(fig)
-    print(f"\n已输出 {OUT/'capacity.csv'} 与 {OUT/'capacity.png'}")
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.4))
+    for k in K_GRID:
+        sub = cap[cap["k(bp@1%)"] == k]
+        axes[0].plot(sub["AUM(亿)"], sub["净年化(%)"], "o-", label=f"k={k}bp")
+    axes[0].axhline(2.49, color="steelblue", ls=":", lw=1, label="CSI 300: 2.49%")
+    axes[0].set_xscale("log")
+    axes[0].set_xlabel("AUM (RMB 100 million, log scale)")
+    axes[0].set_ylabel("Net Annualized Return (%)")
+    axes[0].set_title("AUM vs. Net Annualized Return (After 0.002 One-Way Fee)")
+    axes[0].legend(fontsize=8); axes[0].grid(alpha=0.3)
+    axes[1].plot(base["AUM(亿)"], base["95分位参与率(%)"], "o-",
+                 color="darkorange", label="95th-percentile participation")
+    axes[1].axhline(P_CAP * 100, color="red", ls=":", lw=1, label="10% limit")
+    axes[1].set_xscale("log")
+    axes[1].set_xlabel("AUM (RMB 100 million, log scale)")
+    axes[1].set_ylabel("Stock-Level Participation Rate (%)")
+    axes[1].set_title("AUM vs. Stock-Level Participation (k=10bp)")
+    axes[1].legend(fontsize=8); axes[1].grid(alpha=0.3)
+    fig.suptitle("Main-Strategy Capacity Analysis (2020–2025, Top 100, Monthly Rebalancing)", fontsize=13)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(OUT / "capacity_en.png", dpi=150)
+    plt.close(fig)
+    print(f"\n已输出 {OUT/'capacity.csv'}、中英文容量图")
 
 
 if __name__ == "__main__":

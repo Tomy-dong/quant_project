@@ -160,6 +160,25 @@ def main():
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(OUT / "k_curve.png", dpi=150); plt.close(fig)
 
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.4))
+    for ax, col, title, pct in [
+        (axes[0], "年化收益", "Annualized Return (%)", True),
+        (axes[1], "夏普比率", "Sharpe Ratio", False),
+        (axes[2], "最大回撤", "Max Drawdown (%)", True),
+    ]:
+        v = kc[col] * (100 if pct else 1)
+        ax.plot(kc["K"], v, "o-", color="#2f6f9f", lw=2)
+        ax.axvline(MAIN_K, color="red", ls=":", lw=1, label=f"Main K={MAIN_K}")
+        ax.axvline(10, color="gray", ls="--", lw=1, label="Upper bound K=10")
+        ax.set_xlabel("Factor count K"); ax.set_ylabel(title); ax.set_title(title)
+        ax.legend(fontsize=8); ax.grid(alpha=0.3)
+        for x, y in zip(kc["K"], v):
+            ax.annotate(f"{y:.1f}", (x, y), textcoords="offset points",
+                        xytext=(0, 8), ha="center", fontsize=8)
+    fig.suptitle(f"Factor-Count Sensitivity (Fixed Factors + IVar Top {MAIN_TOPN}, 2020–2025)", fontsize=13)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(OUT / "k_curve_en.png", dpi=150); plt.close(fig)
+
     # ===== 2) 持仓数曲线（K=4，IVar）=====
     print(f"\n[2] 持仓数曲线（K={MAIN_K}，IVar）")
     comp4 = comp_fixed(fitted[MAIN_K])
@@ -186,6 +205,20 @@ def main():
     fig.suptitle(f"持仓数曲线（固定 K={MAIN_K} + IVar，2020-2025）", fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(OUT / "topn_curve.png", dpi=150); plt.close(fig)
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.4))
+    for ax, col, title in [(axes[0], "年化收益", "Annualized Return (%)"),
+                           (axes[1], "最大回撤", "Max Drawdown (%)")]:
+        ax.plot(tc["TopN"], tc[col] * 100, "o-", color="#2f6f9f", lw=2)
+        ax.axvline(MAIN_TOPN, color="red", ls=":", lw=1,
+                   label=f"Main Top {MAIN_TOPN}")
+        ax.axhline(10 if col == "年化收益" else -40, color="gray", ls="--",
+                   lw=1, label="10% / -40%")
+        ax.set_xlabel("Holdings count N"); ax.set_ylabel(title); ax.set_title(title)
+        ax.legend(fontsize=8); ax.grid(alpha=0.3)
+    fig.suptitle(f"Holdings-Count Sensitivity (Fixed K={MAIN_K} + IVar, 2020–2025)", fontsize=13)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(OUT / "topn_curve_en.png", dpi=150); plt.close(fig)
 
     # ===== 3) 最终对比：固定(主) / 滚动 / 双基准 =====
     print("\n[3] 最终对比")
@@ -289,6 +322,25 @@ def main():
                 ha="center", va="bottom", fontsize=8)
     fig.tight_layout(); fig.savefig(OUT / "ff3_alpha.png", dpi=150); plt.close(fig)
 
+    fig, ax = plt.subplots(figsize=(8, 4.6))
+    en_labels = {"固定因子(主策略)": "Fixed K=4 (Main)", "滚动因子": "Rolling K=4"}
+    xs = np.arange(len(sub))
+    ax.bar(xs, sub["alpha年化"] * 100,
+           yerr=[(sub["alpha年化"] - sub["alpha_low"]) * 100,
+                 (sub["alpha_high"] - sub["alpha年化"]) * 100],
+           capsize=5, color=[COLORS.get(n, "gray") for n in sub["策略"]])
+    ax.axhline(0, color="black", lw=0.8)
+    ax.set_xticks(xs); ax.set_xticklabels([en_labels.get(n, n) for n in sub["策略"]])
+    ax.set_ylabel("Annualized FF3 Alpha (%)")
+    ax.set_title("FF3 Regression: Annualized Alpha and 95% Confidence Interval")
+    ax.set_ylim((sub["alpha_low"] * 100).min() - 0.8,
+                (sub["alpha_high"] * 100).max() + 1.3)
+    for i, (_, r) in enumerate(sub.iterrows()):
+        ax.text(i, r["alpha_high"] * 100 + 0.18,
+                f"{r['alpha年化']*100:+.1f}%\np={r['alpha_p']:.3f}",
+                ha="center", va="bottom", fontsize=8)
+    fig.tight_layout(); fig.savefig(OUT / "ff3_alpha_en.png", dpi=150); plt.close(fig)
+
     # ===== 4) 4 个因子的 IC 图 =====
     feat = list(fitted[MAIN_K]["subset"])
     print(f"\n[4] 主策略因子（{len(feat)}）：{feat}")
@@ -306,6 +358,18 @@ def main():
     fig.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(OUT / "factor_ic_grid.png", dpi=140); plt.close(fig)
 
+    fig, axes = plt.subplots(1, len(feat), figsize=(4.2 * len(feat), 3.4))
+    for ax, f in zip(np.atleast_1d(axes), feat):
+        s = oic[f]
+        ax.bar(s.index, s.values, width=20, color="#4c78a8", alpha=0.85)
+        ax.axhline(s.mean(), color="#d62728", lw=1.0, ls="--")
+        ax.axhline(0, color="black", lw=0.5)
+        ax.set_title(f"{f}\nMean {s.mean():.3f}  ICIR {s.mean()/s.std():.2f}", fontsize=9)
+        ax.tick_params(labelsize=7)
+    fig.suptitle("Selected Factors: Monthly RankIC (Out of Sample, 2020–2025)", fontsize=13)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    fig.savefig(OUT / "factor_ic_grid_en.png", dpi=140); plt.close(fig)
+
     yearly = pd.DataFrame({f: oic[f].groupby(oic[f].index.year).mean() for f in feat})
     fig, ax = plt.subplots(figsize=(7, 1.2 + 0.6 * len(feat)))
     vmax = np.nanmax(np.abs(yearly.values))
@@ -321,6 +385,22 @@ def main():
     ax.set_title("入选因子 × 年份 平均 RankIC")
     fig.colorbar(im, ax=ax, fraction=0.05)
     fig.tight_layout(); fig.savefig(OUT / "factor_ic_yearly_heatmap.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7, 1.2 + 0.6 * len(feat)))
+    im = ax.imshow(yearly.values, cmap="RdBu_r", aspect="auto", vmin=-vmax, vmax=vmax)
+    ax.set_xticks(range(len(yearly.columns)))
+    ax.set_xticklabels(yearly.columns, rotation=45, ha="right", fontsize=8)
+    ax.set_yticks(range(len(yearly.index)))
+    ax.set_yticklabels(yearly.index, fontsize=8)
+    ax.set_xlabel("Factor"); ax.set_ylabel("Year")
+    for i in range(len(yearly.index)):
+        for j in range(len(yearly.columns)):
+            ax.text(j, i, f"{yearly.values[i, j]:.2f}", ha="center", va="center",
+                    fontsize=8, color="black")
+    ax.set_title("Selected Factors: Mean RankIC by Year")
+    fig.colorbar(im, ax=ax, fraction=0.05, label="Mean RankIC")
+    fig.tight_layout(); fig.savefig(OUT / "factor_ic_yearly_heatmap_en.png", dpi=150)
     plt.close(fig)
 
     top3 = sorted(feat, key=lambda f: -abs(oic[f].mean()))[:min(3, len(feat))]

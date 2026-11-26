@@ -164,6 +164,22 @@ def main():
     fig.savefig(OUT / "factor_contrib_bar.png", dpi=150)
     plt.close(fig)
 
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    en_order = NAMES + ["Intercept", "Residual"]
+    ax.barh(ypos, np.array(vals) * 100, color=colors, height=0.62)
+    ax.set_yticks(ypos); ax.set_yticklabels(en_order)
+    for yy, v in zip(ypos, vals):
+        ax.text(v * 100 + (1.2 if v >= 0 else -1.2), yy, f"{v*100:+.2f}%",
+                va="center", ha="left" if v >= 0 else "right", fontsize=9)
+    ax.axvline(0, color="black", lw=0.8)
+    ax.set_xlim(lo - abs(lo) * 0.30 - 4, hi + 14)
+    ax.set_xlabel("Cumulative Contribution, 2020–2025 (%)")
+    ax.set_title("Return Attribution: Main Strategy (4 Factors + IVar Top 100, Out of Sample)")
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(OUT / "factor_contrib_bar_en.png", dpi=150)
+    plt.close(fig)
+
     # ---- 图 2：年份 × 因子 平均暴露 ----
     yr = att.index.year
     expo_tab = pd.DataFrame({n: att[f"{n}_暴露"] for n in NAMES})
@@ -187,6 +203,23 @@ def main():
     fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02, label="暴露")
     fig.tight_layout()
     fig.savefig(OUT / "exposure_heatmap.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(9, 3.6))
+    im = ax.imshow(heat.values, cmap="RdBu_r", vmin=-vmax, vmax=vmax, aspect="auto")
+    ax.set_xticks(range(len(heat.columns)))
+    ax.set_xticklabels([f"{y}" for y in heat.columns])
+    ax.set_yticks(range(len(NAMES))); ax.set_yticklabels(NAMES)
+    ax.set_xlabel("Year"); ax.set_ylabel("Factor")
+    for i in range(len(NAMES)):
+        for j in range(len(heat.columns)):
+            v = heat.values[i, j]
+            ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=9,
+                    color="white" if abs(v) > vmax * 0.55 else "black")
+    ax.set_title("Portfolio Factor Exposures: Annual Means (Main Strategy, Standardized Units)")
+    fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02, label="Exposure")
+    fig.tight_layout()
+    fig.savefig(OUT / "exposure_heatmap_en.png", dpi=150)
     plt.close(fig)
 
     print(f"\n已输出 {OUT}")

@@ -51,9 +51,9 @@ The candidate pool contains 470 factors from Alpha191, Alpha158, Alpha101 and th
 | `alpha_097` | Alpha191 price-volume signal | -0.049 | -0.85 | -1 |
 | `a158_cord20` | 20-day price-volume correlation | -0.042 | -0.58 | -1 |
 
-![Monthly RankIC of the four selected factors](results/main_strategy/factor_ic_grid.png)
+![Monthly RankIC of the four selected factors](results/main_strategy/factor_ic_grid_en.png)
 
-![Annual mean RankIC of the selected factors](results/main_strategy/factor_ic_yearly_heatmap.png)
+![Annual mean RankIC of the selected factors](results/main_strategy/factor_ic_yearly_heatmap_en.png)
 
 ### Sensitivity to Factor Count K and Holdings TopN
 
@@ -68,7 +68,7 @@ With fixed factors, ICIR weights and IVar Top 100, K=4 delivers the highest retu
 | 10 | 10 | 6.25% | 0.305 | -29.40% |
 | 15 / 20 | 15 | 8.68% | 0.427 | -24.36% |
 
-![Factor-count sensitivity](results/main_strategy/k_curve.png)
+![Factor-count sensitivity](results/main_strategy/k_curve_en.png)
 
 With K=4 and IVar fixed, Top 100 has the highest annualized return. Top 200 has a slightly higher Sharpe and shallower drawdown but lower absolute return, so the main strategy uses Top 100.
 
@@ -78,13 +78,13 @@ With K=4 and IVar fixed, Top 100 has the highest annualized return. Top 200 has 
 | Sharpe | 0.235 | 0.276 | 0.354 | **0.543** | 0.510 | 0.546 |
 | Max drawdown | -28.48% | -29.10% | -27.73% | **-26.43%** | -26.68% | -25.37% |
 
-![Holdings-count sensitivity](results/main_strategy/topn_curve.png)
+![Holdings-count sensitivity](results/main_strategy/topn_curve_en.png)
 
 ### FF3 Attribution: Beating Benchmarks Does Not Imply Significant Alpha
 
 The main strategy has annualized FF3 alpha of **-0.10%**, with t=-0.04, p=0.967, a 95% confidence interval of approximately [-5.03%, +4.82%], and R²=0.916. The correct conclusion is: **there is no evidence of significant pure alpha; returns come mainly from market and small-cap exposures, making this a small-cap style-enhanced β+ portfolio**. FF3 is an attribution benchmark, not another tradable portfolio; insignificant alpha does not mean the strategy underperforms CSI 300 or CSI 500.
 
-![Main-strategy FF3 alpha and confidence interval](results/main_strategy/ff3_alpha.png)
+![Main-strategy FF3 alpha and confidence interval](results/main_strategy/ff3_alpha_en.png)
 
 ### Return Attribution from Actual Holdings
 
@@ -101,15 +101,15 @@ Monthly cross-sectional regressions on actual holdings decompose portfolio retur
 
 The negative contribution from `a158_cord20` is small and statistically insignificant, mainly reflecting decay after 2023. The fixed-factor design does not remove it mid-sample. Full outputs are in [`results/attribution_main/`](results/attribution_main/).
 
-![Cumulative contributions of the four main-strategy factors](results/attribution_main/factor_contrib_bar.png)
+![Cumulative contributions of the four main-strategy factors](results/attribution_main/factor_contrib_bar_en.png)
 
-![Annual exposures of the four main-strategy factors](results/attribution_main/exposure_heatmap.png)
+![Annual exposures of the four main-strategy factors](results/attribution_main/exposure_heatmap_en.png)
 
 ### Transaction Costs and Strategy Capacity
 
 Annualized one-way turnover is approximately **22.2x**, so a 0.002 one-way fee reduces annual return by about **4.44%**. Under a square-root market-impact model with k=10bp, robust capacity is approximately **RMB 100–300 million**: estimated net annualized return is 6.56% at RMB 300 million AUM and 2.70% at RMB 1 billion. The strategy is therefore not a scalable public-fund-style product; increasing capacity requires lower turnover rather than more factors.
 
-![Main-strategy capacity analysis](results/capacity/capacity.png)
+![Main-strategy capacity analysis](results/capacity/capacity_en.png)
 
 ### Appendix: 40-Factor XGBoost (Not the Main Strategy)
 
@@ -123,9 +123,9 @@ XGBoost uses the 40 screened factors to capture nonlinear interactions. Because 
 
 These configurations differ in holdings and factor constraints and are not fully matched comparisons. IVar only down-weights high-variance stocks after XGBoost selects the list; it does not change the selected names. Positive XGBoost alpha remains insignificant at the 5% level.
 
-![Top 30 appendix candidates and benchmarks](results/final/nav_compare.png)
+![Top 30 appendix candidates and benchmarks](results/final/nav_compare_en.png)
 
-**Why does the figure say “Linear N=5 / N=10” instead of 4?** It is a historical Top 30 comparison created before the final main strategy was selected. Five and ten are the factor counts of two earlier linear controls, not current main-strategy parameters. The current main strategy remains K=4 and Top 100. Throughout the text, **K denotes factor count and N denotes holdings count**. Adding K=4 to this figure requires a new matched Top 30 backtest; the five-factor curve cannot simply be relabelled as four.
+**Why did the legacy Chinese figure say “Linear N=5 / N=10,” while the English figure uses “Linear K=5 / K=10”?** This is a historical Top 30 comparison created before the final main strategy was selected. Five and ten are the factor counts of two earlier linear controls, not current main-strategy parameters. The English figure only corrects the label prefix to follow the convention that **K denotes factor count and N denotes holdings count**; the underlying backtests are unchanged. The current main strategy remains K=4 and Top 100. Adding K=4 to this historical comparison would require a new matched Top 30 backtest; the five-factor curve cannot simply be relabelled as four.
 
 NAV and drawdown for the four XGBoost Top 30 stock weightings are now included in the right column of the [combined main-strategy/appendix figure](results/main_strategy/main_vs_xgb_top30_en.png) above and are not repeated here. The standalone appendix chart remains at `results/xgb_riskweight/riskweight_compare.png`.
 

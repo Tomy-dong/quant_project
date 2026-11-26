@@ -217,6 +217,18 @@ def main():
     ax.set_ylabel("累计净值"); ax.legend(); ax.grid(alpha=0.3)
     fig.tight_layout(); fig.savefig(OUT / "nav_compare.png", dpi=150); plt.close(fig)
 
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    en_labels = {"线性N=5": "Linear K=5", "线性N=10": "Linear K=10",
+                 "XGBoost合成": "XGBoost", "XGBoost+IVar": "XGBoost + IVar",
+                 "沪深300": "CSI 300", "中证500": "CSI 500"}
+    for name, pnl in strategies.items():
+        nav = (1 + pnl.fillna(0)).cumprod()
+        ax.plot(nav.index, nav.values, label=en_labels.get(name, name),
+                lw=2 if "XGB" in name else 1.4, color=COLORS.get(name))
+    ax.set_title("Candidate Strategies vs. Benchmarks: Cumulative NAV (Top 30, 2020–2025, 0.002 One-Way Fee)")
+    ax.set_ylabel("Cumulative NAV"); ax.legend(); ax.grid(alpha=0.3)
+    fig.tight_layout(); fig.savefig(OUT / "nav_compare_en.png", dpi=150); plt.close(fig)
+
     # 图2：分年度收益
     ann = pd.DataFrame(ann_rows).pivot(index="年份", columns="策略", values="收益")
     fig, ax = plt.subplots(figsize=(11, 5))

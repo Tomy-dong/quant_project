@@ -32,6 +32,7 @@
 - **结果文件**：新增主策略、归因、容量、XGBoost 等目录下的 CSV、PNG 和 Excel 结果，便于复现与检查。
 - **主策略独立双面板图**：新增 `results/main_strategy/nav_drawdown_main.png`，上图展示累计净值、下图展示回撤，仅包含固定 K=4 主策略与沪深300、中证500，直接对应主结果表；避免与第 15 章 XGBoost Top30 附录图混淆。
 - **主策略—附录合并图**：新增 `results/main_strategy/main_vs_xgb_top30.png`，以 2×2 面板并列展示左侧固定 K=4 Top100 主策略与右侧 XGBoost Top30 四种权重的净值、回撤；README 改用该合并图，并明确两栏仅为同区间、同费率的组合层对照。新增 `baseline/plot_main_xgb_compare.py`，直接读取已保存的月度收益，无需重复回测；同时输出英文版 `main_vs_xgb_top30_en.png`，英文 README 使用全英文标题、图例、坐标轴与脚注。
+- **英文图表体系**：英文 README 的全部 10 张插图均改用独立英文版本，覆盖合并净值回撤、因子 IC、年度 IC 热力图、K/TopN 敏感性、FF3、收益归因、暴露热力图、容量和 Top30 附录。对应生成脚本同步输出 `*_en.png`，标题、图例、坐标轴和注释均为英文；中文 README 与中文图片保持不变。
 
 ### 调整（Changed）
 
