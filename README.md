@@ -34,9 +34,9 @@ Common backtest conventions: factors are selected on 2015–2019 and then frozen
 | CSI 300 | +15.64% | 2.49% | 18.37% | 0.135 | -39.92% | — | — |
 | CSI 500 | +38.82% | 5.70% | 20.69% | 0.275 | -36.96% | — | — |
 
-![Main strategy and benchmark NAV](results/main_strategy/nav_compare.png)
+![Main fixed-K4 strategy and benchmark NAV and drawdown](results/main_strategy/nav_drawdown_main.png)
 
-![Main strategy and benchmark drawdown](results/main_strategy/drawdown.png)
+> This chart directly corresponds to the result table above and contains only the **fixed K=4 + ICIR + IVar Top 100 main strategy**, CSI 300 and CSI 500. See `nav_compare.png` and `drawdown.png` for the fixed/rolling control. All Top 30 NAV/drawdown charts in Section 15 belong to the XGBoost appendix, not the main strategy.
 
 The fixed factor set beats annual rolling reselection on return, Sharpe and drawdown, suggesting that frequent reselection tends to chase decayed signals. The main strategy beats both benchmarks with a smaller drawdown, but **does not reach the 15% annualized-return target**.
 

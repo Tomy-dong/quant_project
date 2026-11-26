@@ -662,6 +662,7 @@ Top10 明细（同一份名单，只换权重）：
 
 | 文件 | 内容 |
 | --- | --- |
+| `nav_drawdown_main.png` | 主结果表专用：固定 K=4 主策略与双基准的独立净值—回撤双面板图 |
 | `nav_compare.png` | 固定因子（主策略）/ 滚动因子 / 沪深300 / 中证500 累计净值 |
 | `drawdown.png` | 同一组策略与基准的回撤曲线 |
 | `k_curve.png` | 因子数 K=4~20 扩展曲线（回答"因子多了是否更好"） |
@@ -1096,6 +1097,10 @@ S7 规则接入滚动框架（`baseline/rolling_top_weighted.py`）：每年仅�
 | 滚动因子 K=4 + IVar（Top100） | +63.13% | 8.50% | 20.21% | 0.420 | -33.48% | +6.01% | +2.80% | -2.07% | 0.451 | 0.884 |
 | 沪深300 | +15.64% | 2.49% | 18.37% | 0.135 | -39.92% | — | — | — | — | — |
 | 中证500 | +38.82% | 5.70% | 20.69% | 0.275 | -36.96% | — | — | — | — | — |
+
+![固定K4主策略与双基准的净值和回撤](../results/main_strategy/nav_drawdown_main.png)
+
+> 本图仅包含主策略与双基准，直接对应上表；不含滚动因子对照，也不含第 15 章 XGBoost Top30 附录。上图为累计净值，下图为各自历史峰值口径回撤，主策略最大回撤为 -26.43%。
 
 说明：
 
@@ -1592,6 +1597,7 @@ Top30 年化只有 5.74%、回撤更大；Top100 年化 11.24% 且回撤 -26.43%
 | 内容 | 图表 / 文件 | 生成脚本 |
 | --- | --- | --- |
 | 初筛通过名单与统计 | `results/factor_screen/screen_pass.csv`、`factor_summary.csv` | `baseline/factor_screen.py` |
+| 主策略独立净值—回撤双面板图 | `results/main_strategy/nav_drawdown_main.png` | `baseline/main_strategy_a.py` |
 | 主策略净值和基准对比 | `results/main_strategy/nav_compare.png` | `baseline/main_strategy_a.py` |
 | 回撤对比 | `results/main_strategy/drawdown.png` | 同上 |
 | 因子数 K 敏感性 | `results/main_strategy/k_curve.png`、`k_curve.csv` | 同上 |

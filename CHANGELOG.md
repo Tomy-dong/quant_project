@@ -30,6 +30,7 @@ All figures use the 2020–2025 out-of-sample window and a 0.002 one-way fee. Th
 - **Cost and capacity analysis**: `baseline/capacity_analysis.py` covers fees, square-root market impact, stock-level participation and net annualized returns at different AUM levels.
 - **XGBoost appendix**: adds 40-factor nonlinear composition, raw/rank label experiments and EW/IVar/GMVP/MDCP stock-level weighting. It remains an appendix because it uses more than ten input factors.
 - **Reproducible outputs**: adds CSV, PNG and Excel files for the main strategy, attribution, capacity, XGBoost and related comparisons.
+- **Standalone main-strategy panels**: adds `results/main_strategy/nav_drawdown_main.png`, with cumulative NAV above and drawdown below. It contains only the fixed-K4 main strategy, CSI 300 and CSI 500 and directly matches the main result table, avoiding confusion with the XGBoost Top 30 appendix charts.
 
 ### Changed
 

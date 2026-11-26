@@ -8,6 +8,7 @@
     k_curve.csv / k_curve.png        因子数扩展曲线
     topn_curve.csv / topn_curve.png  持仓数曲线（K=4，IVar）
     final_compare.csv                固定因子/滚动因子/沪深300/中证500 + FF3 alpha
+    nav_drawdown_main.png          主策略与双基准的独立净值—回撤双面板图
     nav_compare.png / drawdown.png / ff3_alpha.png
     holdings_main.xlsx               主策略逐月持仓
     factor_ic_grid.png / factor_ic_yearly_heatmap.png / ic_panels_top3.png
@@ -240,6 +241,33 @@ def main():
     ax.set_title(f"回撤对比（Top{MAIN_TOPN}，2020-2025）"); ax.set_ylabel("回撤")
     ax.legend(); ax.grid(alpha=0.3)
     fig.tight_layout(); fig.savefig(OUT / "drawdown.png", dpi=150); plt.close(fig)
+
+    # 主结果表对应的独立图：仅保留主策略与双基准，不混入滚动方案或 Top30 附录。
+    main_names = ["固定因子(主策略)", "沪深300", "中证500"]
+    fig, (ax_nav, ax_dd) = plt.subplots(
+        2, 1, figsize=(11, 8), sharex=True,
+        gridspec_kw={"height_ratios": [1.55, 1.0], "hspace": 0.08})
+    for name in main_names:
+        nav = (1 + final[name].fillna(0)).cumprod()
+        dd = nav / nav.cummax() - 1
+        is_main = name == "固定因子(主策略)"
+        label = f"主策略：固定 K={MAIN_K} + IVar Top{MAIN_TOPN}" if is_main else name
+        ax_nav.plot(nav.index, nav.values, label=label,
+                    lw=2.5 if is_main else 1.5, color=COLORS[name])
+        ax_dd.plot(dd.index, dd.values, label=label,
+                   lw=2.0 if is_main else 1.2, color=COLORS[name])
+    ax_nav.axhline(1.0, color="gray", lw=0.8, ls="--")
+    ax_nav.set_title(f"主策略净值与回撤（2020-2025，单边千分之二，Top{MAIN_TOPN}）")
+    ax_nav.set_ylabel("累计净值（初始=1）")
+    ax_nav.legend(loc="upper left", ncol=3, fontsize=9)
+    ax_nav.grid(alpha=0.3)
+    ax_dd.axhline(-0.4, color="gray", lw=0.8, ls="--")
+    ax_dd.set_ylabel("回撤")
+    ax_dd.set_xlabel("日期")
+    ax_dd.grid(alpha=0.3)
+    fig.align_ylabels((ax_nav, ax_dd))
+    fig.savefig(OUT / "nav_drawdown_main.png", dpi=160, bbox_inches="tight")
+    plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(8, 4.6))
     sub = fcmp[fcmp["alpha年化"].notna()].copy()

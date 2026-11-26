@@ -30,6 +30,7 @@
 - **成本与容量分析**：新增 `baseline/capacity_analysis.py`，覆盖费率、平方根市场冲击、单票参与率和不同 AUM 下的净年化。
 - **XGBoost 附录**：新增 40 因子非线性合成、raw/rank 标签实验及 EW/IVar/GMVP/MDCP 股票层权重对照；因输入因子超过 10 个，仅作为附录，不进入主策略。
 - **结果文件**：新增主策略、归因、容量、XGBoost 等目录下的 CSV、PNG 和 Excel 结果，便于复现与检查。
+- **主策略独立双面板图**：新增 `results/main_strategy/nav_drawdown_main.png`，上图展示累计净值、下图展示回撤，仅包含固定 K=4 主策略与沪深300、中证500，直接对应主结果表；避免与第 15 章 XGBoost Top30 附录图混淆。
 
 ### 调整（Changed）
 
