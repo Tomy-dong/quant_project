@@ -1,6 +1,6 @@
 # A-Share Multi-Factor Stock Selection Strategy
 
-**English** | [中文](README.zh-CN.md)
+**English** | [中文](README.zh-CN.md) | [Changelog](CHANGELOG.md)
 
 The strategy uses price-volume factors as its alpha source and runs a **long-only active** book that keeps benchmark beta and targets excess return over the CSI 300 (with the CSI 500 as a comparison benchmark). A market-neutral branch was fully evaluated but not adopted: hedging removes only about 16% of the variance, and a 4% annual basis consumes the remaining return (see docs/strategy.md section 14.4).
 
@@ -10,6 +10,7 @@ This repository implements the data pipeline, factor tests, single-factor baseli
 
 ## Contents
 
+- [Changelog](CHANGELOG.md)
 - [Results Summary](#results-summary)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
